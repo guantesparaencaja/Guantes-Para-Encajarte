@@ -1,5 +1,15 @@
 {
 	"appId": "com.guantes.app",
 	"appName": "Guantes Para Encajar",
-	"webDir": "dist"
+	"webDir": "dist",
+	"plugins": {
+		"GoogleAuth": {
+			"scopes": [
+				"profile",
+				"email"
+			],
+			"serverClientId": "YOUR_SERVER_CLIENT_ID.apps.googleusercontent.com",
+			"forceCodeForRefreshToken": true
+		}
+	}
 }

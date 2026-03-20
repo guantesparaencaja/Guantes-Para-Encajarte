@@ -21,7 +21,7 @@ import { Payments } from './pages/Payments';
 import { useClassReminders } from './hooks/useClassReminders';
 import { auth, db } from './lib/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { ErrorBoundary } from './components/ErrorBoundary';
 
 export default function App() {
@@ -36,14 +36,22 @@ export default function App() {
         const userRef = doc(db, 'users', firebaseUser.uid);
         const userDoc = await getDoc(userRef);
         if (userDoc.exists()) {
-          setUser({ id: firebaseUser.uid, ...userDoc.data() } as any);
+          const data = userDoc.data();
+          // Ensure specific email gets admin role
+          const adminEmails = ['hernandezkevin001998@gmail.com', 'guantesparaencajar@gmail.com'];
+          if (firebaseUser.email && adminEmails.includes(firebaseUser.email) && data.role !== 'admin') {
+            data.role = 'admin';
+            await updateDoc(userRef, { role: 'admin' });
+          }
+          setUser({ id: firebaseUser.uid, ...data } as any);
         } else {
           // If user exists in Auth but not in Firestore, we might need to redirect to register
           // or create a minimal profile. For now, we'll just set the basic info.
+          const adminEmails = ['hernandezkevin001998@gmail.com', 'guantesparaencajar@gmail.com'];
           const userData = {
             name: firebaseUser.displayName || 'Usuario',
             email: firebaseUser.email,
-            role: 'student',
+            role: (firebaseUser.email && adminEmails.includes(firebaseUser.email)) ? 'admin' : 'student',
             is_new_user: true
           };
           setUser({ id: firebaseUser.uid, ...userData } as any);

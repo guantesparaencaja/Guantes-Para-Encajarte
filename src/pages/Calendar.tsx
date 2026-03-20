@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { format, addDays, startOfWeek, addMonths, subMonths, isSameDay, isSameMonth, differenceInHours, isBefore, parse } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { db } from '../lib/firebase';
-import { collection, getDocs, addDoc, deleteDoc, doc, query, where, updateDoc, onSnapshot } from 'firebase/firestore';
+import { collection, getDocs, addDoc, deleteDoc, doc, query, where, setDoc, onSnapshot } from 'firebase/firestore';
 import { Modal } from '../components/Modal';
 // import { sendEmail } from '../lib/email';
 
@@ -35,12 +35,14 @@ interface Booking {
   id: string;
   user_id: string;
   user_name?: string;
+  user_email?: string;
   class_id: string;
   date: string;
   time: string;
   status: string;
   rating?: number;
   feedback?: string;
+  created_at?: string;
 }
 
 export function Calendar() {
@@ -99,10 +101,10 @@ export function Calendar() {
     if (!ratingModal.bookingId || ratingModal.rating === 0) return;
     
     try {
-      await updateDoc(doc(db, 'bookings', ratingModal.bookingId), {
+      await setDoc(doc(db, 'bookings', ratingModal.bookingId), {
         rating: ratingModal.rating,
         feedback: ratingModal.feedback
-      });
+      }, { merge: true });
       setRatingModal({ isOpen: false, bookingId: null, rating: 0, feedback: '' });
       fetchBookings();
     } catch (err) {
@@ -124,8 +126,12 @@ export function Calendar() {
   const [loading, setLoading] = useState(false);
 
   const fetchBookings = () => {
-    if (!user) return () => {};
+    if (!user) {
+      console.log("Calendar: No user found, skipping fetchBookings");
+      return () => {};
+    }
     
+    console.log("Calendar: Fetching bookings for user", user.id, "role", user.role);
     let q;
     if (user.role === 'admin') {
       q = query(collection(db, 'bookings'));
@@ -134,19 +140,25 @@ export function Calendar() {
     }
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
+      console.log("Calendar: Bookings snapshot received, count:", snapshot.size);
       const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Booking));
       setBookings(data);
       if (user.role === 'admin') {
         setAllBookings(data);
       }
+    }, (err) => {
+      console.error("Calendar: Error fetching bookings:", err);
     });
 
     // Also fetch all bookings for students to see availability
     if (user.role !== 'admin') {
       const allQ = query(collection(db, 'bookings'));
       const unsubscribeAll = onSnapshot(allQ, (snapshot) => {
+        console.log("Calendar: All bookings snapshot received, count:", snapshot.size);
         const allData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Booking));
         setAllBookings(allData);
+      }, (err) => {
+        console.error("Calendar: Error fetching all bookings:", err);
       });
       return () => {
         unsubscribe();
@@ -158,16 +170,27 @@ export function Calendar() {
   };
 
   const fetchAvailabilities = () => {
+    if (!user) {
+      console.log("Calendar: No user found, skipping fetchAvailabilities");
+      return () => {};
+    }
+    
+    console.log("Calendar: Fetching availabilities");
     const unsubscribe = onSnapshot(collection(db, 'availabilities'), (snapshot) => {
+      console.log("Calendar: Availabilities snapshot received, count:", snapshot.size);
       if (snapshot.empty) {
+        console.log("Calendar: Availabilities collection is empty");
         // Seed default availabilities if empty (only if admin)
         if (user?.role === 'admin') {
+          console.log("Calendar: Admin detected, seeding default availabilities");
           seedDefaultAvailabilities();
         }
       } else {
         const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Availability));
         setAvailabilities(data);
       }
+    }, (err) => {
+      console.error("Calendar: Error fetching availabilities:", err);
     });
     return () => unsubscribe();
   };
@@ -209,6 +232,8 @@ export function Calendar() {
   };
 
   useEffect(() => {
+    if (!user) return;
+    
     const unsubAvail = fetchAvailabilities();
     const unsubBookings = fetchBookings();
     return () => {
@@ -222,7 +247,7 @@ export function Calendar() {
     try {
       if (editingAvailabilityId) {
         const docRef = doc(db, 'availabilities', editingAvailabilityId);
-        await updateDoc(docRef, newAvailability);
+        await setDoc(docRef, newAvailability, { merge: true });
         setAvailabilities(availabilities.map(a => a.id === editingAvailabilityId ? { ...a, ...newAvailability } as Availability : a));
         setShowAddAvailability(false);
         setEditingAvailabilityId(null);
@@ -279,7 +304,8 @@ export function Calendar() {
       
       const docRef = await addDoc(collection(db, 'bookings'), newBooking);
       
-      // Create Google Calendar Event (via server)
+      // Create Google Calendar Event (via server) - REMOVED as backend is gone
+      /*
       try {
         await fetch('/api/calendar/event', {
           method: 'POST',
@@ -297,6 +323,7 @@ export function Calendar() {
       } catch (err) {
         console.error("Error creating calendar event:", err);
       }
+      */
 
       await fetchBookings();
       
@@ -388,7 +415,7 @@ END:VCALENDAR`;
   const confirmCancel = async () => {
     if (!cancelBookingId) return;
     try {
-      await updateDoc(doc(db, 'bookings', cancelBookingId), { status: 'cancelled' });
+      await setDoc(doc(db, 'bookings', cancelBookingId), { status: 'cancelled' }, { merge: true });
       setAlertModal({ show: true, message: 'Reserva cancelada exitosamente.', type: 'success' });
       setShowCancelModal(false);
       setCancelBookingId(null);
@@ -401,7 +428,7 @@ END:VCALENDAR`;
   const confirmAdminPayment = async () => {
     if (!adminConfirmPaymentId) return;
     try {
-      await updateDoc(doc(db, 'bookings', adminConfirmPaymentId), { status: 'active' });
+      await setDoc(doc(db, 'bookings', adminConfirmPaymentId), { status: 'active' }, { merge: true });
       setAlertModal({ show: true, message: 'Reserva confirmada exitosamente', type: 'success' });
       setShowAdminConfirmModal(false);
       setAdminConfirmPaymentId(null);
@@ -430,11 +457,12 @@ END:VCALENDAR`;
   const isToday = isSameDay(selectedDate, now);
   
   const availableSlotsForSelectedDay = availabilities.filter(a => {
+    if (!a) return false;
     // 1. Check if it's the right day of the week
     if (a.day_of_week !== selectedDayOfWeek) return false;
     
     // 2. Check if the current user already booked this slot
-    const userAlreadyBooked = allBookings.some(b => b.date === selectedDateStr && b.class_id === a.id && b.user_id === String(user?.id) && b.status === 'active');
+    const userAlreadyBooked = allBookings.some(b => b && b.date === selectedDateStr && b.class_id === a.id && b.user_id === String(user?.id) && b.status === 'active');
     if (userAlreadyBooked) return false;
     
     // 3. Check if the slot is full (if max_students is defined and > 0)
@@ -446,7 +474,7 @@ END:VCALENDAR`;
     
     // 4. If it's today, check if the time has already passed or is too close
     if (isToday) {
-      const slotTime = parse(a.start_time, 'HH:mm', new Date());
+      const slotTime = parse(a.start_time || '00:00', 'HH:mm', new Date());
       // Require at least 4 hours advance notice for same-day bookings
       const minAdvanceTime = new Date(now.getTime() + 4 * 60 * 60 * 1000);
       if (isBefore(slotTime, minAdvanceTime)) {
@@ -455,11 +483,11 @@ END:VCALENDAR`;
     }
     
     return true;
-  }).sort((a, b) => a.start_time.localeCompare(b.start_time));
+  }).sort((a, b) => (a?.start_time || '').localeCompare(b?.start_time || ''));
 
   // Separate bookings into active and past/cancelled
-  const activeBookings = bookings.filter(b => (b.status === 'active' || b.status === 'pending_payment' || b.status === 'waitlist') && new Date(`${b.date}T${b.time?.split(' - ')[0] || '00:00'}`) >= new Date());
-  const pastBookings = bookings.filter(b => b.status === 'cancelled' || new Date(`${b.date}T${b.time?.split(' - ')[0] || '00:00'}`) < new Date());
+  const activeBookings = bookings.filter(b => b && (b.status === 'active' || b.status === 'pending_payment' || b.status === 'waitlist') && new Date(`${b.date}T${b.time?.split(' - ')[0] || '00:00'}`) >= new Date());
+  const pastBookings = bookings.filter(b => b && (b.status === 'cancelled' || new Date(`${b.date}T${b.time?.split(' - ')[0] || '00:00'}`) < new Date()));
 
   return (
     <div className="flex flex-col min-h-screen bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100 font-display p-4 pb-24">
@@ -494,7 +522,7 @@ END:VCALENDAR`;
           <div>
             <h3 className="text-sm font-bold text-blue-400 mb-1">Google Calendar Sync</h3>
             <p className="text-xs text-slate-300">
-              Las reservas ahora se sincronizan automáticamente con Google Calendar. Asegúrate de que el backend <code>/api/calendar/event</code> esté configurado.
+              Las reservas ahora se pueden sincronizar con Google Calendar usando los botones de "Google" o "ICS" en tus reservas.
             </p>
           </div>
         </div>
@@ -519,7 +547,7 @@ END:VCALENDAR`;
                   <p className="text-slate-500 font-bold italic uppercase tracking-widest text-xs">No hay reservas registradas</p>
                 </div>
               ) : (
-                bookings.sort((a, b) => b.created_at.localeCompare(a.created_at)).map(booking => (
+                bookings.sort((a, b) => (b?.created_at || '').localeCompare(a?.created_at || '')).map(booking => (
                   <div key={booking.id} className="bg-slate-950/50 p-5 rounded-2xl border border-slate-800 hover:border-primary/30 transition-all group">
                     <div className="flex justify-between items-start mb-4">
                       <div className="flex items-center gap-4">
@@ -636,7 +664,7 @@ END:VCALENDAR`;
 
           <div className="grid grid-cols-1 md:grid-cols-7 gap-4">
             {['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'].map(day => {
-              const dayAvailabilities = availabilities.filter(a => a.day_of_week === day).sort((a, b) => a.start_time.localeCompare(b.start_time));
+              const dayAvailabilities = availabilities.filter(a => a && a.day_of_week === day).sort((a, b) => (a?.start_time || '').localeCompare(b?.start_time || ''));
               return (
                 <div key={day} className="bg-slate-800 rounded-xl border border-slate-700 p-4">
                   <h3 className="font-bold text-primary text-center mb-4 border-b border-slate-700 pb-2">{day}</h3>
@@ -827,7 +855,7 @@ END:VCALENDAR`;
             </div>
           ) : (
             <div className="grid grid-cols-1 gap-4">
-              {bookings.sort((a, b) => b.date.localeCompare(a.date)).map((booking) => (
+              {bookings.sort((a, b) => (b?.date || '').localeCompare(a?.date || '')).map((booking) => (
                 <div 
                   key={booking.id} 
                   className={`bg-slate-900/80 border rounded-3xl p-5 transition-all
@@ -870,9 +898,11 @@ END:VCALENDAR`;
                       <div className="grid grid-cols-2 gap-2">
                         <button
                           onClick={() => {
-                            const [year, month, day] = booking.date.split('-').map(Number);
+                            const [year, month, day] = (booking.date || '').split('-').map(Number);
                             const dateObj = new Date(year, month - 1, day);
-                            const url = `https://www.google.com/calendar/render?action=TEMPLATE&text=Clase+de+Boxeo&dates=${format(dateObj, 'yyyyMMdd')}T${booking.time.split(' - ')[0].replace(':', '')}00/${format(dateObj, 'yyyyMMdd')}T${booking.time.split(' - ')[1].replace(':', '')}00&details=Clase+de+boxeo+reservada+en+GUANTES&location=Gimnasio+Decisao`;
+                            const startTime = (booking.time || '').split(' - ')[0] || '00:00';
+                            const endTime = (booking.time || '').split(' - ')[1] || '00:00';
+                            const url = `https://www.google.com/calendar/render?action=TEMPLATE&text=Clase+de+Boxeo&dates=${format(dateObj, 'yyyyMMdd')}T${startTime.replace(':', '')}00/${format(dateObj, 'yyyyMMdd')}T${endTime.replace(':', '')}00&details=Clase+de+boxeo+reservada+en+GUANTES&location=Gimnasio+Decisao`;
                             window.open(url, '_blank');
                           }}
                           className="flex items-center justify-center gap-2 py-3 bg-slate-800 text-slate-300 rounded-xl text-[10px] font-black uppercase tracking-widest border border-slate-700"

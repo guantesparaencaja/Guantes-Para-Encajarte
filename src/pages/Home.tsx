@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useStore } from '../store/useStore';
-import { Heart, Flame, Trophy, Play, Dumbbell, Calendar, Utensils, Quote, Smile, Zap, Target, Activity, Star, AlertCircle, Droplets, RefreshCw, ChevronRight, Video, Upload, Trash2, Lock } from 'lucide-react';
+import { Heart, Flame, Trophy, Play, Dumbbell, Calendar, Utensils, Quote, Smile, Zap, Target, Activity, Star, AlertCircle, Droplets, RefreshCw, ChevronRight, Video, Upload, Trash2, Lock, CheckCircle2, Info } from 'lucide-react';
+import { Modal } from '../components/Modal';
 import { AssessmentModal } from '../components/AssessmentModal';
 import { doc, updateDoc, setDoc, collection, onSnapshot, query, limit, orderBy, addDoc, deleteDoc, getDocs } from 'firebase/firestore';
 import { ref, uploadBytesResumable, getDownloadURL, deleteObject } from 'firebase/storage';
@@ -134,6 +135,34 @@ export function Home() {
     challenge_unlocked: false,
   });
   const setUser = useStore((state) => state.setUser);
+
+  const [alertModal, setAlertModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    type: 'success' | 'error' | 'info';
+  }>({
+    isOpen: false,
+    title: '',
+    message: '',
+    type: 'info'
+  });
+
+  const [confirmModal, setConfirmModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+  }>({
+    isOpen: false,
+    title: '',
+    message: '',
+    onConfirm: () => {}
+  });
+
+  const showAlert = (title: string, message: string, type: 'success' | 'error' | 'info' = 'info') => {
+    setAlertModal({ isOpen: true, title, message, type });
+  };
 
   useEffect(() => {
     if (!user) {
@@ -273,7 +302,7 @@ export function Home() {
     if (!file) return;
 
     if (file.size > 200 * 1024 * 1024) {
-      alert('El video es demasiado grande. Máximo 200MB.');
+      showAlert('Error', 'El video es demasiado grande. Máximo 200MB.', 'error');
       return;
     }
 
@@ -288,7 +317,7 @@ export function Home() {
       (error) => {
         console.error('Error uploading video:', error);
         setUploadProgress(null);
-        alert('Error al subir el video.');
+        showAlert('Error', 'Error al subir el video.', 'error');
       },
       async () => {
         const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
@@ -311,14 +340,21 @@ export function Home() {
 
   const handleDeleteChallenge = async () => {
     if (!challengeVideo) return;
-    if (!window.confirm('¿Estás seguro de que quieres eliminar el reto del día?')) return;
-
-    try {
-      await deleteDoc(doc(db, 'challenges', challengeVideo.id));
-      setChallengeVideo(null);
-    } catch (error) {
-      console.error('Error deleting challenge:', error);
-    }
+    setConfirmModal({
+      isOpen: true,
+      title: '¿Eliminar Reto?',
+      message: '¿Estás seguro de que quieres eliminar el reto del día?',
+      onConfirm: async () => {
+        try {
+          await deleteDoc(doc(db, 'challenges', challengeVideo.id));
+          setChallengeVideo(null);
+          setConfirmModal(prev => ({ ...prev, isOpen: false }));
+        } catch (error) {
+          console.error('Error deleting challenge:', error);
+          showAlert('Error', 'No se pudo eliminar el reto.', 'error');
+        }
+      }
+    });
   };
 
   return (
@@ -740,6 +776,52 @@ export function Home() {
           </div>
         </div>
       </div>
+      {/* Alert Modal */}
+      <Modal
+        isOpen={alertModal.isOpen}
+        onClose={() => setAlertModal({ ...alertModal, isOpen: false })}
+        title={alertModal.title}
+      >
+        <div className="flex flex-col items-center text-center p-4">
+          {alertModal.type === 'success' && <CheckCircle2 className="w-16 h-16 text-emerald-500 mb-4" />}
+          {alertModal.type === 'error' && <AlertCircle className="w-16 h-16 text-red-500 mb-4" />}
+          {alertModal.type === 'info' && <Info className="w-16 h-16 text-blue-500 mb-4" />}
+          <p className="text-slate-300">{alertModal.message}</p>
+          <button
+            onClick={() => setAlertModal({ ...alertModal, isOpen: false })}
+            className="mt-6 w-full bg-slate-800 text-white font-bold py-3 rounded-xl hover:bg-slate-700 transition-colors"
+          >
+            Entendido
+          </button>
+        </div>
+      </Modal>
+
+      {/* Confirm Modal */}
+      <Modal
+        isOpen={confirmModal.isOpen}
+        onClose={() => setConfirmModal({ ...confirmModal, isOpen: false })}
+        title={confirmModal.title}
+      >
+        <div className="flex flex-col items-center text-center p-4">
+          <AlertCircle className="w-16 h-16 text-orange-500 mb-4" />
+          <p className="text-slate-300 mb-6">{confirmModal.message}</p>
+          <div className="flex gap-3 w-full">
+            <button
+              onClick={() => setConfirmModal({ ...confirmModal, isOpen: false })}
+              className="flex-1 bg-slate-800 text-white font-bold py-3 rounded-xl hover:bg-slate-700 transition-colors"
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={confirmModal.onConfirm}
+              className="flex-1 bg-red-600 text-white font-bold py-3 rounded-xl hover:bg-red-700 transition-colors"
+            >
+              Confirmar
+            </button>
+          </div>
+        </div>
+      </Modal>
+
       {/* Admin Global Settings Toggle */}
       {user?.role === 'admin' && (
         <div className="mt-12 p-6 bg-slate-800/50 rounded-3xl border border-slate-700/50 mb-8">

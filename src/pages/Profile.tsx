@@ -7,6 +7,9 @@ import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import { collection, getDocs, doc, updateDoc, setDoc, serverTimestamp, deleteDoc, query, where } from 'firebase/firestore';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 
+import { Modal } from '../components/Modal';
+import { AlertCircle, Info, CheckCircle2 } from 'lucide-react';
+
 export function Profile() {
   const user = useStore((state) => state.user);
   const theme = useStore((state) => state.theme);
@@ -28,6 +31,22 @@ export function Profile() {
   const [userToDelete, setUserToDelete] = useState<{id: string, name: string} | null>(null);
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
 
+  const [alertModal, setAlertModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    type: 'success' | 'error' | 'info';
+  }>({
+    isOpen: false,
+    title: '',
+    message: '',
+    type: 'info'
+  });
+
+  const showAlert = (title: string, message: string, type: 'success' | 'error' | 'info' = 'info') => {
+    setAlertModal({ isOpen: true, title, message, type });
+  };
+
   useEffect(() => {
     if (user?.role === 'admin' || user?.email === 'guantesparaencajar@gmail.com') {
       fetchAllUsers();
@@ -46,7 +65,7 @@ export function Profile() {
 
   const requestNotificationPermission = async () => {
     if (!('Notification' in window)) {
-      alert('Tu navegador no soporta notificaciones.');
+      showAlert('No soportado', 'Tu navegador no soporta notificaciones.', 'info');
       return;
     }
     const permission = await Notification.requestPermission();
@@ -118,13 +137,13 @@ export function Profile() {
         tutorial_completed: false
       });
       
-      alert('Usuario creado con éxito');
+      showAlert('Éxito', 'Usuario creado con éxito', 'success');
       setShowCreateUser(false);
       setNewUser({ email: '', password: '', role: 'student' });
       fetchAllUsers();
     } catch (err: any) {
       console.error(err);
-      alert('Error al crear usuario: ' + err.message);
+      showAlert('Error', 'Error al crear usuario: ' + err.message, 'error');
     }
   };
 
@@ -132,12 +151,12 @@ export function Profile() {
     if (!userToDelete) return;
     try {
       await deleteDoc(doc(db, 'users', userToDelete.id));
-      alert('Usuario eliminado correctamente de la base de datos.');
+      showAlert('Éxito', 'Usuario eliminado correctamente de la base de datos.', 'success');
       setUserToDelete(null);
       fetchAllUsers();
     } catch (error) {
       console.error('Error deleting user:', error);
-      alert('Error al eliminar el usuario.');
+      showAlert('Error', 'Error al eliminar el usuario.', 'error');
     }
   };
 
@@ -188,10 +207,10 @@ export function Profile() {
       await updateDoc(userRef, updatedData);
       setUser({ ...user, ...updatedData } as any);
       setIsEditing(false);
-      alert('Perfil actualizado correctamente');
+      showAlert('Éxito', 'Perfil actualizado correctamente', 'success');
     } catch (error) {
       console.error('Error updating profile:', error);
-      alert('Error al actualizar el perfil');
+      showAlert('Error', 'Error al actualizar el perfil', 'error');
     }
   };
 
@@ -199,7 +218,7 @@ export function Profile() {
     const file = e.target.files?.[0];
     if (file) {
       if (!file.type.startsWith('image/')) {
-        alert('Por favor, selecciona una imagen.');
+        showAlert('Error', 'Por favor, selecciona una imagen.', 'error');
         return;
       }
 
@@ -214,7 +233,7 @@ export function Profile() {
         },
         (error) => {
           console.error('Error al subir la imagen:', error);
-          alert('Error al subir la imagen: ' + error.message);
+          showAlert('Error', 'Error al subir la imagen: ' + error.message, 'error');
           setUploadProgress(null);
         },
         async () => {
@@ -622,10 +641,10 @@ export function Profile() {
                   const userRef = doc(db, 'users', String(user.id));
                   await updateDoc(userRef, { role: 'admin' });
                   setUser({ ...user, role: 'admin' } as any);
-                  alert('¡Ahora eres administrador! Recarga la página si es necesario.');
+                  showAlert('Éxito', '¡Ahora eres administrador! Recarga la página si es necesario.', 'success');
                 } catch (err) {
                   console.error(err);
-                  alert('Error al hacerte admin');
+                  showAlert('Error', 'Error al hacerte admin', 'error');
                 }
               }}
               className="w-full flex items-center justify-center p-4 bg-purple-600/20 rounded-xl border border-purple-500/50 hover:bg-purple-600/30 transition-colors mb-4"
@@ -645,6 +664,26 @@ export function Profile() {
           </button>
         </div>
       </section>
+      {/* Alert Modal */}
+      <Modal
+        isOpen={alertModal.isOpen}
+        onClose={() => setAlertModal({ ...alertModal, isOpen: false })}
+        title={alertModal.title}
+      >
+        <div className="flex flex-col items-center text-center p-4">
+          {alertModal.type === 'success' && <CheckCircle2 className="w-16 h-16 text-emerald-500 mb-4" />}
+          {alertModal.type === 'error' && <AlertCircle className="w-16 h-16 text-red-500 mb-4" />}
+          {alertModal.type === 'info' && <Info className="w-16 h-16 text-blue-500 mb-4" />}
+          <p className="text-slate-300">{alertModal.message}</p>
+          <button
+            onClick={() => setAlertModal({ ...alertModal, isOpen: false })}
+            className="mt-6 w-full bg-slate-800 text-white font-bold py-3 rounded-xl hover:bg-slate-700 transition-colors"
+          >
+            Entendido
+          </button>
+        </div>
+      </Modal>
+
       {/* Delete User Confirmation Modal */}
       {userToDelete && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">

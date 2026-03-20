@@ -4,4 +4,6 @@
     <string name="title_activity_main">Guantes Para Encajar</string>
     <string name="package_name">com.guantes.app</string>
     <string name="custom_url_scheme">com.guantes.app</string>
+    <string name="google_client_id">@string/google_client_id_value</string>
+    <string name="google_client_id_value">YOUR_GOOGLE_CLIENT_ID</string>
 </resources>

@@ -1,12 +1,15 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useStore } from '../store/useStore';
-import { LogIn, Mail, Lock, ArrowLeft, UserPlus } from 'lucide-react';
+import { LogIn, Mail, Lock, ArrowLeft, UserPlus, AlertCircle, Info, CheckCircle2 } from 'lucide-react';
 import { auth, db, googleProvider } from '../lib/firebase';
-import { signInWithEmailAndPassword, signInWithPopup, sendPasswordResetEmail, sendSignInLinkToEmail, isSignInWithEmailLink, signInWithEmailLink } from 'firebase/auth';
+import { signInWithEmailAndPassword, signInWithPopup, sendPasswordResetEmail, sendSignInLinkToEmail, isSignInWithEmailLink, signInWithEmailLink, GoogleAuthProvider, signInWithCredential } from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { useEffect } from 'react';
+import { Capacitor } from '@capacitor/core';
+import { GoogleAuth } from '@codetrix-studio/capacitor-google-auth';
 
+import { Modal } from '../components/Modal';
 export function Login() {
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
@@ -17,6 +20,8 @@ export function Login() {
   const [showForgot, setShowForgot] = useState(false);
   const [forgotInput, setForgotInput] = useState('');
   const [forgotSent, setForgotSent] = useState(false);
+  const [showEmailPrompt, setShowEmailPrompt] = useState(false);
+  const [promptEmail, setPromptEmail] = useState('');
   const navigate = useNavigate();
   const setUser = useStore((state) => state.setUser);
 
@@ -25,40 +30,42 @@ export function Login() {
     if (isSignInWithEmailLink(auth, window.location.href)) {
       let emailForLink = window.localStorage.getItem('emailForSignIn');
       if (!emailForLink) {
-        emailForLink = window.prompt('Por favor, ingresa tu correo para confirmar el inicio de sesión:');
+        setShowEmailPrompt(true);
+        return;
       }
-      if (emailForLink) {
-        signInWithEmailLink(auth, emailForLink, window.location.href)
-          .then(async (result) => {
-            window.localStorage.removeItem('emailForSignIn');
-            const userRef = doc(db, 'users', result.user.uid);
-            const userDoc = await getDoc(userRef);
-            if (userDoc.exists()) {
-              setUser({ id: result.user.uid, ...userDoc.data() } as any);
-              navigate('/');
-            } else {
-              // Create basic profile
-              const userData = {
-                name: result.user.displayName || 'Usuario',
-                email: emailForLink,
-                role: 'student',
-                streak: 0,
-                lives: 3,
-                license_level: 1,
-                is_new_user: true
-              };
-              await setDoc(userRef, userData);
-              setUser({ id: result.user.uid, ...userData } as any);
-              navigate('/');
-            }
-          })
-          .catch((err) => {
-            console.error(err);
-            setError('Error al iniciar sesión con el enlace: ' + err.message);
-          });
-      }
+      handleEmailLinkSignIn(emailForLink);
     }
   }, [navigate, setUser]);
+
+  const handleEmailLinkSignIn = async (emailForLink: string) => {
+    try {
+      const result = await signInWithEmailLink(auth, emailForLink, window.location.href);
+      window.localStorage.removeItem('emailForSignIn');
+      const userRef = doc(db, 'users', result.user.uid);
+      const userDoc = await getDoc(userRef);
+      if (userDoc.exists()) {
+        setUser({ id: result.user.uid, ...userDoc.data() } as any);
+        navigate('/');
+      } else {
+        // Create basic profile
+        const userData = {
+          name: result.user.displayName || 'Usuario',
+          email: emailForLink,
+          role: 'student',
+          streak: 0,
+          lives: 3,
+          license_level: 1,
+          is_new_user: true
+        };
+        await setDoc(userRef, userData);
+        setUser({ id: result.user.uid, ...userData } as any);
+        navigate('/');
+      }
+    } catch (err: any) {
+      console.error(err);
+      setError('Error al iniciar sesión con el enlace: ' + err.message);
+    }
+  };
 
   const handleSendSignInLink = async () => {
     if (!email) {
@@ -126,8 +133,19 @@ export function Login() {
 
   const handleSocialLogin = async () => {
     try {
-      const result = await signInWithPopup(auth, googleProvider);
-      const user = result.user;
+      let user;
+      
+      if (Capacitor.isNativePlatform()) {
+        const googleUser = await GoogleAuth.signIn();
+        const credential = GoogleAuthProvider.credential(googleUser.authentication.idToken);
+        const result = await signInWithCredential(auth, credential);
+        user = result.user;
+      } else {
+        const result = await signInWithPopup(auth, googleProvider);
+        user = result.user;
+      }
+      
+      if (!user) return;
       
       // Check if user exists in Firestore
       const userRef = doc(db, 'users', user.uid);
@@ -331,6 +349,36 @@ export function Login() {
           <span>ENTRAR CON GOOGLE</span>
         </button>
       </form>
+
+      {/* Email Prompt Modal for Link Sign-in */}
+      <Modal
+        isOpen={showEmailPrompt}
+        onClose={() => setShowEmailPrompt(false)}
+        title="Confirmar Email"
+      >
+        <div className="flex flex-col gap-4 p-4">
+          <p className="text-slate-300 text-sm">Por favor, ingresa tu correo para confirmar el inicio de sesión:</p>
+          <input 
+            type="email" 
+            value={promptEmail}
+            onChange={(e) => setPromptEmail(e.target.value)}
+            className="w-full bg-slate-800/30 border-slate-700 focus:border-primary focus:ring-1 focus:ring-primary rounded-lg py-3 px-4 text-slate-100" 
+            placeholder="tu@email.com" 
+            required
+          />
+          <button
+            onClick={() => {
+              if (promptEmail) {
+                setShowEmailPrompt(false);
+                handleEmailLinkSignIn(promptEmail);
+              }
+            }}
+            className="w-full bg-primary text-white font-bold py-3 rounded-xl hover:bg-primary/90 transition-colors"
+          >
+            Confirmar e Iniciar Sesión
+          </button>
+        </div>
+      </Modal>
     </div>
   );
 }
