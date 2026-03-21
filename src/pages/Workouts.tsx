@@ -3,7 +3,7 @@ import { useStore } from '../store/useStore';
 import { Dumbbell, Play, Clock, ArrowLeft, Upload, Home, Building2, X, Plus, Trash2, Video, Search, CheckSquare, Square, Calendar, MapPin, RefreshCw, ChevronRight, ChevronDown, Info, Settings, AlertCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { db, storage } from '../lib/firebase';
-import { collection, getDocs, addDoc, deleteDoc, doc, updateDoc, query, where } from 'firebase/firestore';
+import { collection, onSnapshot, addDoc, deleteDoc, doc, updateDoc, query, where, getDocs } from 'firebase/firestore';
 import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import { getYouTubeEmbedUrl } from '../services/geminiService';
 
@@ -87,41 +87,40 @@ export function Workouts() {
   };
 
   useEffect(() => {
-    fetchCategories();
-    fetchVideos();
-    if (user) fetchUserRoutines();
-  }, [user]);
+    const unsubCategories = onSnapshot(collection(db, 'workout_categories'), 
+      (snapshot) => {
+        const catsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Category));
+        setCategories(catsData);
+      },
+      (error) => console.error("Error fetching categories:", error)
+    );
 
-  const fetchUserRoutines = async () => {
-    try {
+    const unsubVideos = onSnapshot(collection(db, 'workout_videos'), 
+      (snapshot) => {
+        const videosData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as WorkoutVideo));
+        setVideos(videosData);
+      },
+      (error) => console.error("Error fetching videos:", error)
+    );
+
+    let unsubRoutines: (() => void) | undefined;
+    if (user) {
       const q = query(collection(db, 'custom_routines'), where('user_id', '==', String(user?.id)));
-      const querySnapshot = await getDocs(q);
-      const routinesData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as CustomRoutine));
-      setUserRoutines(routinesData);
-    } catch (error) {
-      console.error("Error fetching routines:", error);
+      unsubRoutines = onSnapshot(q, 
+        (snapshot) => {
+          const routinesData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as CustomRoutine));
+          setUserRoutines(routinesData);
+        },
+        (error) => console.error("Error fetching routines:", error)
+      );
     }
-  };
 
-  const fetchCategories = async () => {
-    try {
-      const querySnapshot = await getDocs(collection(db, 'workout_categories'));
-      const catsData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Category));
-      setCategories(catsData);
-    } catch (error) {
-      console.error("Error fetching categories:", error);
-    }
-  };
-
-  const fetchVideos = async () => {
-    try {
-      const querySnapshot = await getDocs(collection(db, 'workout_videos'));
-      const videosData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as WorkoutVideo));
-      setVideos(videosData);
-    } catch (error) {
-      console.error("Error fetching videos:", error);
-    }
-  };
+    return () => {
+      unsubCategories();
+      unsubVideos();
+      if (unsubRoutines) unsubRoutines();
+    };
+  }, [user]);
 
   const handleAddCategory = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -509,8 +508,6 @@ export function Workouts() {
         }
       }
 
-      fetchCategories();
-      fetchVideos();
       alert('Contenido de MuscleWiki actualizado exitosamente.');
     } catch (error) {
       console.error('Error seeding videos:', error);

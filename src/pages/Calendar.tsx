@@ -48,6 +48,7 @@ interface Booking {
 
 export function Calendar() {
   const user = useStore((state) => state.user);
+  const setUser = useStore((state) => state.setUser);
   const [classes, setClasses] = useState<Class[]>([]);
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [allBookings, setAllBookings] = useState<Booking[]>([]);
@@ -285,13 +286,27 @@ export function Calendar() {
 
   const confirmBooking = async () => {
     if (!user || !selectedTime) return;
-    setShowConfirmModal(false);
     
+    // Check if user has classes remaining
+    if (user.role === 'student' && (user.classes_remaining || 0) <= 0 && !isWaitlistBooking) {
+      setAlertModal({
+        title: "Sin Clases",
+        message: "No tienes clases restantes en tu plan. Por favor, compra una clase individual o renueva tu plan.",
+        type: 'info'
+      });
+      setShowConfirmModal(false);
+      return;
+    }
+
+    setShowConfirmModal(false);
     setLoading(true);
     try {
       const dateStr = format(selectedDate, 'yyyy-MM-dd');
       const timeStr = `${selectedTime.start_time} - ${selectedTime.end_time}`;
       
+      // If student has classes, it's active immediately. If not (and somehow they got here), it's pending_payment.
+      const status = isWaitlistBooking ? 'waitlist' : ((user.classes_remaining || 0) > 0 ? 'active' : 'pending_payment');
+
       const newBooking = {
         user_id: String(user.id),
         user_name: user.name,
@@ -299,39 +314,37 @@ export function Calendar() {
         class_id: selectedTime.id,
         date: dateStr,
         time: timeStr,
-        status: isWaitlistBooking ? 'waitlist' : 'pending_payment',
+        status: status,
         created_at: new Date().toISOString()
       };
       
       const docRef = await addDoc(collection(db, 'bookings'), newBooking);
       
-      // Create Google Calendar Event (via server) - REMOVED as backend is gone
-      /*
-      try {
-        await fetch('/api/calendar/event', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            bookingId: docRef.id,
-            userEmail: user.email,
-            userName: user.name,
-            date: dateStr,
-            startTime: selectedTime.start_time,
-            endTime: selectedTime.end_time,
-            title: selectedTime.title
-          })
+      // Deduct class from user quota if it's an active booking
+      if (status === 'active' && !isWaitlistBooking) {
+        const newRemaining = Math.max(0, (user.classes_remaining || 0) - 1);
+        await updateDoc(doc(db, 'users', String(user.id)), {
+          classes_remaining: newRemaining
         });
-      } catch (err) {
-        console.error("Error creating calendar event:", err);
+        // Update local state too
+        setUser({ ...user, classes_remaining: newRemaining });
       }
-      */
 
       await fetchBookings();
       
       if (isWaitlistBooking) {
         setAlertModal({
           title: "Lista de Espera",
-          message: `Te has unido a la lista de espera para el ${format(selectedDate, 'dd/MM/yyyy')} a las ${timeStr}.`
+          message: `Te has unido a la lista de espera para el ${format(selectedDate, 'dd/MM/yyyy')} a las ${timeStr}.`,
+          type: 'success'
+        });
+        setSelectedTime(null);
+        setShowMyBookings(true);
+      } else if (status === 'active') {
+        setAlertModal({
+          title: "¡Reserva Exitosa!",
+          message: `Tu clase ha sido reservada para el ${format(selectedDate, 'dd/MM/yyyy')} a las ${timeStr}. Se ha descontado 1 clase de tu plan.`,
+          type: 'success'
         });
         setSelectedTime(null);
         setShowMyBookings(true);
@@ -346,7 +359,8 @@ export function Calendar() {
       console.error(err);
       setAlertModal({
         title: "Error",
-        message: 'Error al procesar la reserva: ' + err.message
+        message: 'Error al procesar la reserva: ' + err.message,
+        type: 'error'
       });
     } finally {
       setLoading(false);
@@ -437,10 +451,26 @@ END:VCALENDAR`;
   };
 
   const confirmCancel = async () => {
-    if (!cancelBookingId) return;
+    if (!cancelBookingId || !user) return;
     try {
-      await setDoc(doc(db, 'bookings', cancelBookingId), { status: 'cancelled' }, { merge: true });
-      setAlertModal({ show: true, message: 'Reserva cancelada exitosamente.', type: 'success' });
+      const bookingRef = doc(db, 'bookings', cancelBookingId);
+      const bookingSnap = await getDoc(bookingRef);
+      
+      if (bookingSnap.exists()) {
+        const bookingData = bookingSnap.data();
+        await setDoc(bookingRef, { status: 'cancelled' }, { merge: true });
+        
+        // Return class to user quota if it was an active booking
+        if (bookingData.status === 'active') {
+          const newRemaining = (user.classes_remaining || 0) + 1;
+          await updateDoc(doc(db, 'users', String(user.id)), {
+            classes_remaining: newRemaining
+          });
+          setUser({ ...user, classes_remaining: newRemaining });
+        }
+      }
+
+      setAlertModal({ show: true, message: 'Reserva cancelada exitosamente. Se ha devuelto la clase a tu plan.', type: 'success' });
       setShowCancelModal(false);
       setCancelBookingId(null);
     } catch (err: any) {
@@ -538,19 +568,35 @@ END:VCALENDAR`;
       </header>
 
       {user?.role === 'student' && (
-        <div className="flex bg-slate-900 p-1 rounded-2xl mb-6 border border-slate-800">
-          <button 
-            onClick={() => setShowMyBookings(false)}
-            className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${!showMyBookings ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'text-slate-500'}`}
-          >
-            Reservar Clase
-          </button>
-          <button 
-            onClick={() => setShowMyBookings(true)}
-            className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${showMyBookings ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'text-slate-500'}`}
-          >
-            Mis Reservas
-          </button>
+        <div className="mb-6 space-y-4">
+          <div className="glass-card p-6 rounded-3xl border-white/10 flex items-center justify-between">
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 mb-1">Plan Actual</p>
+              <h3 className="text-xl font-black uppercase italic text-white">{user.plan_name || 'Sin Plan'}</h3>
+            </div>
+            <div className="text-right">
+              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 mb-1">Clases Restantes</p>
+              <div className="flex items-center gap-2 justify-end">
+                <span className="text-3xl font-black italic text-primary">{user.classes_remaining ?? 0}</span>
+                <span className="text-xs font-bold text-slate-500 uppercase">/ {user.classes_per_month ?? 0}</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex bg-slate-900 p-1 rounded-2xl border border-slate-800">
+            <button 
+              onClick={() => setShowMyBookings(false)}
+              className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${!showMyBookings ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'text-slate-500'}`}
+            >
+              Reservar Clase
+            </button>
+            <button 
+              onClick={() => setShowMyBookings(true)}
+              className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${showMyBookings ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'text-slate-500'}`}
+            >
+              Mis Reservas
+            </button>
+          </div>
         </div>
       )}
 

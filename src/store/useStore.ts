@@ -45,8 +45,10 @@ interface User {
   plan?: string;
   plan_id?: string;
   plan_name?: string;
-  plan_status?: 'active' | 'pending' | 'inactive';
+  plan_status?: 'active' | 'pending' | 'inactive' | 'pending_payment' | 'pending_verification' | 'none';
   plan_start_date?: any;
+  classes_per_month?: number;
+  classes_remaining?: number;
   last_workout?: string;
 }
 

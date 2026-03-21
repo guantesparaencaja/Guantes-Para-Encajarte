@@ -13,6 +13,7 @@ export function Payments() {
   const [bookingId, setBookingId] = useState<string | null>(location.state?.bookingId || null);
   const [planId, setPlanId] = useState<string | null>(location.state?.planId || null);
   const [planName, setPlanName] = useState<string | null>(location.state?.planName || null);
+  const [classesPerMonth, setClassesPerMonth] = useState<number | null>(location.state?.classesPerMonth || null);
   const [booking, setBooking] = useState<any>(null);
   const [pendingBookings, setPendingBookings] = useState<any[]>([]);
   const [file, setFile] = useState<File | null>(null);
@@ -22,15 +23,18 @@ export function Payments() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    let unsubBooking: (() => void) | undefined;
+    let unsubPending: (() => void) | undefined;
+
     if (bookingId) {
-      const fetchBooking = async () => {
-        const docRef = doc(db, 'bookings', bookingId);
-        const docSnap = await getDoc(docRef);
+      const docRef = doc(db, 'bookings', bookingId);
+      unsubBooking = onSnapshot(docRef, (docSnap) => {
         if (docSnap.exists()) {
           setBooking({ id: docSnap.id, ...docSnap.data() });
         }
-      };
-      fetchBooking();
+      }, (err) => {
+        console.error("Error syncing booking:", err);
+      });
     } else if (user?.id) {
       // Fetch pending bookings for the user
       const q = query(
@@ -38,15 +42,21 @@ export function Payments() {
         where('user_id', '==', user.id),
         where('payment_status', '==', 'pending')
       );
-      const unsubscribe = onSnapshot(q, (snapshot) => {
+      unsubPending = onSnapshot(q, (snapshot) => {
         const pending = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         setPendingBookings(pending);
         if (pending.length === 1) {
           setBookingId(pending[0].id);
         }
+      }, (err) => {
+        console.error("Error syncing pending bookings:", err);
       });
-      return () => unsubscribe();
     }
+
+    return () => {
+      if (unsubBooking) unsubBooking();
+      if (unsubPending) unsubPending();
+    };
   }, [bookingId, user?.id]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -101,14 +111,21 @@ export function Payments() {
           
           if (planId) {
             // Create a plan payment request
-            await addDoc(collection(db, 'plan_payments'), {
+            await addDoc(collection(db, 'payments'), {
               user_id: user.id,
               user_name: user.name,
               plan_id: planId,
               plan_name: planName,
+              classes_per_month: classesPerMonth || user.classes_per_month || 0,
+              amount: 0, // Should probably get this from plan data
               payment_proof_url: downloadURL,
               status: 'submitted',
-              submitted_at: new Date().toISOString()
+              created_at: new Date().toISOString()
+            });
+
+            // Update user status
+            await updateDoc(doc(db, 'users', user.id), {
+              plan_status: 'pending_verification'
             });
           } else if (bookingId) {
             // Update booking with payment info
@@ -134,7 +151,7 @@ export function Payments() {
           setUploading(false);
           
           setTimeout(() => {
-            navigate(planId ? '/profile' : '/calendar');
+            navigate(planId ? '/payment-review' : '/calendar');
           }, 3000);
         }
       );
