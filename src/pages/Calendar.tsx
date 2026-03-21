@@ -290,7 +290,7 @@ export function Calendar() {
     // Check if user has classes remaining
     if (user.role === 'student' && (user.classes_remaining || 0) <= 0 && !isWaitlistBooking) {
       setAlertModal({
-        title: "Sin Clases",
+        show: true,
         message: "No tienes clases restantes en tu plan. Por favor, compra una clase individual o renueva tu plan.",
         type: 'info'
       });
@@ -334,7 +334,7 @@ export function Calendar() {
       
       if (isWaitlistBooking) {
         setAlertModal({
-          title: "Lista de Espera",
+          show: true,
           message: `Te has unido a la lista de espera para el ${format(selectedDate, 'dd/MM/yyyy')} a las ${timeStr}.`,
           type: 'success'
         });
@@ -342,25 +342,22 @@ export function Calendar() {
         setShowMyBookings(true);
       } else if (status === 'active') {
         setAlertModal({
-          title: "¡Reserva Exitosa!",
+          show: true,
           message: `Tu clase ha sido reservada para el ${format(selectedDate, 'dd/MM/yyyy')} a las ${timeStr}. Se ha descontado 1 clase de tu plan.`,
           type: 'success'
         });
         setSelectedTime(null);
         setShowMyBookings(true);
       } else {
-        setShowPaymentModal({
-          bookingId: docRef.id,
-          date: format(selectedDate, 'dd/MM/yyyy'),
-          time: timeStr
-        });
+        setAlertModal(prev => ({ ...prev, bookingId: docRef.id }));
+        setShowPaymentModal(true);
       }
     } catch (err: any) {
       console.error(err);
       setAlertModal({
-        title: "Error",
+        show: true,
         message: 'Error al procesar la reserva: ' + err.message,
-        type: 'error'
+        type: 'info'
       });
     } finally {
       setLoading(false);

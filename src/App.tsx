@@ -55,7 +55,7 @@ function ProtectedRoute({ children, allowedRoles }: { children: React.ReactNode,
         navigate('/plans');
       }
     } else if (user.plan_status === 'pending_payment') {
-      if (location !== '/payments' && location !== '/profile') {
+      if (location !== '/payments' && location !== '/profile' && location !== '/plans') {
         navigate('/payments');
       }
     } else if (user.plan_status === 'pending_verification') {

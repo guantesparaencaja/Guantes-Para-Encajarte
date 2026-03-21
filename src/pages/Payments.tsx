@@ -203,7 +203,7 @@ export function Payments() {
               ))}
             </div>
           </div>
-        ) : !bookingId ? (
+        ) : !bookingId && !planId ? (
           <div className="bg-slate-800/50 rounded-3xl border border-slate-700 p-8 text-center flex flex-col items-center gap-4">
             <div className="w-16 h-16 bg-slate-900 rounded-full flex items-center justify-center text-slate-500">
               <AlertCircle className="w-8 h-8" />
