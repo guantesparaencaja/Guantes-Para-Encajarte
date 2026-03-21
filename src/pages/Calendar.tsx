@@ -98,7 +98,7 @@ export function Calendar() {
         });
       }
     }
-  }, [bookings, user]);
+  }, [bookings, user, ratingModal.isOpen, ratingModal.bookingId]);
 
   const handleRateClass = async () => {
     if (!ratingModal.bookingId || ratingModal.rating === 0) return;
