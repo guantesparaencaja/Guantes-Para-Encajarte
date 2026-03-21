@@ -199,6 +199,10 @@ export function Home() {
     };
 
     checkAssessment();
+
+    return () => {
+      unsubscribeSettings();
+    };
   }, [user, navigate]);
 
   const refreshJokesAndQuotes = () => {

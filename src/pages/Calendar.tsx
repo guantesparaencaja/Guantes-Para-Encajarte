@@ -507,53 +507,100 @@ END:VCALENDAR`;
   const nextMonth = () => setCurrentMonth(addMonths(currentMonth, 1));
   const prevMonth = () => setCurrentMonth(subMonths(currentMonth, 1));
 
-  // Generate calendar days
-  const monthStart = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1);
-  const startDate = startOfWeek(monthStart, { weekStartsOn: 1 }); // Monday
-  const days = Array.from({ length: 42 }).map((_, i) => addDays(startDate, i));
+  // Memoized calendar days
+  const calendarDays = React.useMemo(() => {
+    const monthStart = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1);
+    const startDate = startOfWeek(monthStart, { weekStartsOn: 1 }); // Monday
+    return Array.from({ length: 42 }).map((_, i) => addDays(startDate, i));
+  }, [currentMonth]);
 
   const daysOfWeekMap: Record<string, string> = {
     '0': 'Domingo', '1': 'Lunes', '2': 'Martes', '3': 'Miércoles', '4': 'Jueves', '5': 'Viernes', '6': 'Sábado'
   };
   const selectedDayOfWeek = daysOfWeekMap[selectedDate.getDay().toString()];
   
-  // Filter available slots
-  const now = new Date();
-  const selectedDateStr = format(selectedDate, 'yyyy-MM-dd');
-  const isToday = isSameDay(selectedDate, now);
-  
-  const availableSlotsForSelectedDay = availabilities.filter(a => {
-    if (!a) return false;
-    // 1. Check if it's the right day of the week
-    if (a.day_of_week !== selectedDayOfWeek) return false;
-    
-    // 2. Check if the current user already booked this slot
-    const userAlreadyBooked = allBookings.some(b => b && b.date === selectedDateStr && b.class_id === a.id && b.user_id === String(user?.id) && b.status === 'active');
-    if (userAlreadyBooked) return false;
-    
-    // 3. Check if the slot is full (if max_students is defined and > 0)
-    // We NO LONGER filter out full slots so users can join the waitlist
-    // if (a.max_students && a.max_students > 0) {
-    //   const activeBookingsCount = allBookings.filter(b => b.date === selectedDateStr && b.class_id === a.id && b.status === 'active').length;
-    //   if (activeBookingsCount >= a.max_students) return false;
-    // }
-    
-    // 4. If it's today, check if the time has already passed or is too close
-    if (isToday) {
-      const slotTime = parse(a.start_time || '00:00', 'HH:mm', new Date());
-      // Require at least 4 hours advance notice for same-day bookings
-      const minAdvanceTime = new Date(now.getTime() + 4 * 60 * 60 * 1000);
-      if (isBefore(slotTime, minAdvanceTime)) {
-        return false;
+  // Memoized days with classes
+  const daysWithClasses = React.useMemo(() => {
+    const days = new Set<string>();
+    availabilities.forEach(a => {
+      if (a && a.day_of_week) {
+        days.add(a.day_of_week);
       }
-    }
-    
-    return true;
-  }).sort((a, b) => (a?.start_time || '').localeCompare(b?.start_time || ''));
+    });
+    return days;
+  }, [availabilities]);
 
-  // Separate bookings into active and past/cancelled
-  const activeBookings = bookings.filter(b => b && (b.status === 'active' || b.status === 'pending_payment' || b.status === 'waitlist') && new Date(`${b.date}T${b.time?.split(' - ')[0] || '00:00'}`) >= new Date());
-  const pastBookings = bookings.filter(b => b && (b.status === 'cancelled' || new Date(`${b.date}T${b.time?.split(' - ')[0] || '00:00'}`) < new Date()));
+  // Memoized available slots with counts
+  const availableSlotsWithCounts = React.useMemo(() => {
+    const now = new Date();
+    const selectedDateStr = format(selectedDate, 'yyyy-MM-dd');
+    const isToday = isSameDay(selectedDate, now);
+    
+    return availabilities
+      .filter(a => {
+        if (!a) return false;
+        if (a.day_of_week !== selectedDayOfWeek) return false;
+        
+        const userAlreadyBooked = allBookings.some(b => b && b.date === selectedDateStr && b.class_id === a.id && b.user_id === String(user?.id) && b.status === 'active');
+        if (userAlreadyBooked) return false;
+        
+        if (isToday) {
+          try {
+            const [hours, minutes] = (a.start_time || '00:00').split(':').map(Number);
+            const slotTime = new Date(selectedDate);
+            slotTime.setHours(hours, minutes, 0, 0);
+            
+            const minAdvanceTime = new Date(now.getTime() + 4 * 60 * 60 * 1000);
+            if (isBefore(slotTime, minAdvanceTime)) {
+              return false;
+            }
+          } catch (e) {
+            return false;
+          }
+        }
+        
+        return true;
+      })
+      .map(slot => {
+        const activeBookingsCount = allBookings.filter(b => b.date === selectedDateStr && b.class_id === slot.id && b.status === 'active').length;
+        const spotsLeft = slot.max_students ? slot.max_students - activeBookingsCount : null;
+        return { ...slot, activeBookingsCount, spotsLeft };
+      })
+      .sort((a, b) => (a?.start_time || '').localeCompare(b?.start_time || ''));
+  }, [availabilities, selectedDayOfWeek, allBookings, selectedDate, user?.id]);
+
+  // Memoized active and past bookings
+  const { activeBookings, pastBookings } = React.useMemo(() => {
+    const now = new Date();
+    return {
+      activeBookings: bookings.filter(b => {
+        if (!b || !b.date || !b.time) return false;
+        if (b.status !== 'active' && b.status !== 'pending_payment' && b.status !== 'waitlist') return false;
+        try {
+          const [startTime] = b.time.split(' - ');
+          const [hours, minutes] = startTime.split(':').map(Number);
+          const [year, month, day] = b.date.split('-').map(Number);
+          const bookingDate = new Date(year, month - 1, day, hours, minutes);
+          return bookingDate >= now;
+        } catch (e) {
+          return false;
+        }
+      }),
+      pastBookings: bookings.filter(b => {
+        if (!b || !b.date || !b.time) return true;
+        if (b.status === 'cancelled') return true;
+        try {
+          const [startTime] = b.time.split(' - ');
+          const [hours, minutes] = startTime.split(':').map(Number);
+          const [year, month, day] = b.date.split('-').map(Number);
+          const bookingDate = new Date(year, month - 1, day, hours, minutes);
+          return bookingDate < now;
+        } catch (e) {
+          return true;
+        }
+      })
+    };
+  }, [bookings]);
 
   return (
     <div className="flex flex-col min-h-screen bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100 font-display p-4 pb-24">
@@ -815,7 +862,7 @@ END:VCALENDAR`;
               </div>
               
               <div className="grid grid-cols-7 gap-1">
-                {days.map((day, i) => {
+                {calendarDays.map((day, i) => {
                   const isSelected = isSameDay(day, selectedDate);
                   const isCurrentMonth = isSameMonth(day, currentMonth);
                   const isPast = day < new Date(new Date().setHours(0,0,0,0));
@@ -836,7 +883,7 @@ END:VCALENDAR`;
                       {format(day, 'd')}
                       {(() => {
                         const dayName = daysOfWeekMap[day.getDay().toString()];
-                        const hasClasses = availabilities.some(a => a.day_of_week === dayName);
+                        const hasClasses = daysWithClasses.has(dayName);
                         return hasClasses && isCurrentMonth && !isPast && !isSelected ? (
                           <div className="absolute bottom-1.5 w-1 h-1 bg-primary rounded-full shadow-sm shadow-primary/50"></div>
                         ) : null;
@@ -867,14 +914,10 @@ END:VCALENDAR`;
               </p>
               
               <div className="flex flex-col gap-3 max-h-[300px] overflow-y-auto pr-1 custom-scrollbar">
-                {availableSlotsForSelectedDay.length === 0 ? (
+                {availableSlotsWithCounts.length === 0 ? (
                   <p className="text-sm text-slate-400 text-center py-4">No hay clases disponibles para este día.</p>
                 ) : (
-                  availableSlotsForSelectedDay.map((slot) => {
-                    const activeBookingsCount = allBookings.filter(b => b.date === selectedDateStr && b.class_id === slot.id && b.status === 'active').length;
-                    const spotsLeft = slot.max_students ? slot.max_students - activeBookingsCount : null;
-                    
-                    return (
+                  availableSlotsWithCounts.map((slot) => (
                     <div key={slot.id} className="flex flex-col gap-2 mb-4">
                       <button
                         onClick={() => setSelectedTime(slot)}
@@ -895,13 +938,13 @@ END:VCALENDAR`;
                           <h4 className={`font-bold ${selectedTime?.id === slot.id ? 'text-white' : 'text-slate-200'}`}>{slot.title}</h4>
                           {slot.max_students && (
                             <div className="flex items-center gap-2">
-                              <span className={`text-xs font-bold ${spotsLeft !== null && spotsLeft <= 1 ? 'text-red-500' : 'text-emerald-500'}`}>
-                                {activeBookingsCount}/{slot.max_students}
+                              <span className={`text-xs font-bold ${slot.spotsLeft !== null && slot.spotsLeft <= 1 ? 'text-red-500' : 'text-emerald-500'}`}>
+                                {slot.activeBookingsCount}/{slot.max_students}
                               </span>
                               <div className="w-16 h-1.5 bg-slate-800 rounded-full overflow-hidden">
                                 <div 
-                                  className={`h-full rounded-full ${spotsLeft !== null && spotsLeft <= 1 ? 'bg-red-500' : 'bg-emerald-500'}`}
-                                  style={{ width: `${Math.min(100, (activeBookingsCount / slot.max_students) * 100)}%` }}
+                                  className={`h-full rounded-full ${slot.spotsLeft !== null && slot.spotsLeft <= 1 ? 'bg-red-500' : 'bg-emerald-500'}`}
+                                  style={{ width: `${Math.min(100, (slot.activeBookingsCount / slot.max_students) * 100)}%` }}
                                 />
                               </div>
                             </div>
@@ -912,25 +955,24 @@ END:VCALENDAR`;
                       </button>
                       {selectedTime?.id === slot.id && (
                         <button 
-                          onClick={() => handleBook(spotsLeft !== null && spotsLeft <= 0)}
+                          onClick={() => handleBook(slot.spotsLeft !== null && slot.spotsLeft <= 0)}
                           className={`w-full text-white rounded-lg py-3 text-sm font-bold shadow-lg transition-all ${
-                            spotsLeft !== null && spotsLeft <= 0 
+                            slot.spotsLeft !== null && slot.spotsLeft <= 0 
                               ? 'bg-amber-500 hover:bg-amber-600' 
                               : 'bg-primary hover:bg-primary/90 neon-glow'
                           }`}
                         >
-                          {spotsLeft !== null && spotsLeft <= 0 ? 'Unirse a Lista de Espera' : 'Confirmar Reserva'}
+                          {slot.spotsLeft !== null && slot.spotsLeft <= 0 ? 'Unirse a Lista de Espera' : 'Confirmar Reserva'}
                         </button>
                       )}
                     </div>
-                    );
-                  })
+                  ))
                 )}
               </div>
             </div>
           </div>
         </div>
-        </div>
+      </div>
       ) : (
         <div className="space-y-4">
           <div className="flex items-center justify-between mb-2">

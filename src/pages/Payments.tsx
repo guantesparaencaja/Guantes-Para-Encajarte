@@ -17,6 +17,7 @@ export function Payments() {
   const [booking, setBooking] = useState<any>(null);
   const [pendingBookings, setPendingBookings] = useState<any[]>([]);
   const [file, setFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [success, setSuccess] = useState(false);
@@ -35,6 +36,9 @@ export function Payments() {
       }, (err) => {
         console.error("Error syncing booking:", err);
       });
+    } else if (planId) {
+      // Viene desde Plans con planId — no necesita buscar bookings
+      // El formulario de pago se muestra directamente con el plan seleccionado
     } else if (user?.id) {
       // Fetch pending bookings for the user
       const q = query(
@@ -57,7 +61,7 @@ export function Payments() {
       if (unsubBooking) unsubBooking();
       if (unsubPending) unsubPending();
     };
-  }, [bookingId, user?.id]);
+  }, [bookingId, planId, user?.id]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -75,10 +79,26 @@ export function Payments() {
         return;
       }
 
+      // Revoke previous URL if any
+      if (previewUrl) {
+        URL.revokeObjectURL(previewUrl);
+      }
+
+      const url = URL.createObjectURL(selectedFile);
+      setPreviewUrl(url);
       setFile(selectedFile);
       setError(null);
     }
   };
+
+  // Cleanup object URL on unmount
+  useEffect(() => {
+    return () => {
+      if (previewUrl) {
+        URL.revokeObjectURL(previewUrl);
+      }
+    };
+  }, [previewUrl]);
 
   const copyToClipboard = () => {
     navigator.clipboard.writeText('3022028477');
@@ -300,11 +320,22 @@ export function Payments() {
                 >
                   {file ? (
                     <>
-                      <img 
-                        src={URL.createObjectURL(file)} 
-                        alt="Preview" 
-                        className="absolute inset-0 w-full h-full object-cover opacity-40"
-                      />
+                      {file.type === 'application/pdf' ? (
+                        <div className="absolute inset-0 bg-slate-900/80 flex items-center justify-center">
+                          <div className="flex flex-col items-center gap-2">
+                            <div className="w-16 h-16 bg-red-500/20 rounded-2xl flex items-center justify-center text-red-500 border border-red-500/30">
+                              <span className="font-black text-xl">PDF</span>
+                            </div>
+                            <span className="text-xs font-bold text-slate-400">{file.name}</span>
+                          </div>
+                        </div>
+                      ) : (
+                        <img 
+                          src={previewUrl || ''} 
+                          alt="Preview" 
+                          className="absolute inset-0 w-full h-full object-cover opacity-40"
+                        />
+                      )}
                       <div className="relative z-10 flex flex-col items-center gap-2">
                         <ImageIcon className="w-10 h-10 text-primary" />
                         <span className="text-sm font-bold text-white">{file.name}</span>

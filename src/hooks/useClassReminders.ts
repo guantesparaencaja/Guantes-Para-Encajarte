@@ -12,6 +12,7 @@ export function useClassReminders() {
       return;
     }
 
+    let bookings: any[] = [];
     const q = query(
       collection(db, 'bookings'),
       where('user_id', '==', String(user.id)),
@@ -19,13 +20,19 @@ export function useClassReminders() {
     );
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      const bookings = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as any));
+      bookings = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as any));
+    }, (error) => {
+      console.error("Error in class reminders snapshot:", error);
+    });
+
+    // Check every minute
+    const interval = setInterval(() => {
+      const now = new Date();
       
-      // Check every minute
-      const interval = setInterval(() => {
-        const now = new Date();
+      bookings.forEach(booking => {
+        if (!booking.date || !booking.time) return;
         
-        bookings.forEach(booking => {
+        try {
           const [year, month, day] = booking.date.split('-').map(Number);
           const [hours, minutes] = booking.time.split(':').map(Number);
           const classDate = new Date(year, month - 1, day, hours, minutes, 0, 0);
@@ -41,12 +48,15 @@ export function useClassReminders() {
             });
             localStorage.setItem(notifKey, 'true');
           }
-        });
-      }, 60000); // Check every minute
+        } catch (e) {
+          console.error("Error processing booking for reminder:", e);
+        }
+      });
+    }, 60000); // Check every minute
 
-      return () => clearInterval(interval);
-    });
-
-    return () => unsubscribe();
+    return () => {
+      unsubscribe();
+      clearInterval(interval);
+    };
   }, [user]);
 }
