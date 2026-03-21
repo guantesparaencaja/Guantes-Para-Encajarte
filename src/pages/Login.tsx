@@ -72,10 +72,15 @@ export function Login() {
       setError('Ingresa tu correo primero');
       return;
     }
+    
+    // URL de producción corregida para el link de login
+    const productionUrl = 'https://guantes-entrenamiento-de-boxeo-167463849607.us-west1.run.app/login';
+    
     const actionCodeSettings = {
-      url: window.location.href,
+      url: productionUrl,
       handleCodeInApp: true,
     };
+
     try {
       await sendSignInLinkToEmail(auth, email, actionCodeSettings);
       window.localStorage.setItem('emailForSignIn', email);
@@ -83,7 +88,11 @@ export function Login() {
       setError('');
     } catch (err: any) {
       console.error(err);
-      setError('Error al enviar enlace: ' + err.message);
+      if (err.code === 'auth/unauthorized-continue-uri') {
+        setError('Error: El dominio de producción no está autorizado en Firebase. Por favor, contacta al administrador.');
+      } else {
+        setError('Error al enviar enlace: ' + err.message);
+      }
     }
   };
 

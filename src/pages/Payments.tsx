@@ -64,14 +64,14 @@ export function Payments() {
       const selectedFile = e.target.files[0];
       
       // Validation
-      const validTypes = ['image/jpeg', 'image/png', 'image/jpg'];
+      const validTypes = ['image/jpeg', 'image/png', 'image/jpg', 'image/webp', 'application/pdf'];
       if (!validTypes.includes(selectedFile.type)) {
-        setError('Solo se permiten imágenes JPG o PNG.');
+        setError('Solo se permiten imágenes JPG, PNG, WEBP o PDF.');
         return;
       }
 
-      if (selectedFile.size > 5 * 1024 * 1024) {
-        setError('El archivo es demasiado grande (máximo 5MB).');
+      if (selectedFile.size > 10 * 1024 * 1024) {
+        setError('El archivo es demasiado grande (máximo 10MB).');
         return;
       }
 
@@ -92,7 +92,8 @@ export function Payments() {
     setError(null);
 
     try {
-      const storageRef = ref(storage, `pagos/${user.id}/comprobante_${Date.now()}.jpg`);
+      const extension = file.name.split('.').pop() || 'jpg';
+      const storageRef = ref(storage, `pagos/${user.id}/comprobante_${Date.now()}.${extension}`);
       const uploadTask = uploadBytesResumable(storageRef, file);
 
       uploadTask.on(
@@ -101,9 +102,9 @@ export function Payments() {
           const p = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
           setProgress(p);
         },
-        (err) => {
+        (err: any) => {
           console.error(err);
-          setError('Error al subir el archivo. Inténtalo de nuevo.');
+          setError(`Error al subir: ${err.code || err.message}. Verifica tu conexión e inténtalo de nuevo.`);
           setUploading(false);
         },
         async () => {
@@ -232,15 +233,15 @@ export function Payments() {
 
             <div className="space-y-6">
               <div className="bg-white p-6 rounded-3xl flex flex-col items-center gap-4 mb-2 shadow-xl border border-slate-200">
-                <div className="w-56 h-56 bg-slate-50 rounded-2xl flex items-center justify-center border-2 border-dashed border-slate-200 relative overflow-hidden group">
-                  <QrCode className="w-32 h-32 text-slate-200 group-hover:text-primary/20 transition-colors" />
-                  <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/60 backdrop-blur-[1px]">
-                    <div className="w-12 h-12 bg-[#E80054] rounded-full flex items-center justify-center text-white font-black italic text-xl mb-2 shadow-lg">N</div>
-                    <p className="text-[10px] font-black text-slate-800 uppercase text-center px-6 italic leading-tight">
-                      Escanea este QR desde tu App Nequi
-                    </p>
-                  </div>
-                </div>
+                <img 
+                  src="https://firebasestorage.googleapis.com/v0/b/gpte007.firebasestorage.app/o/qr-pago.jpg?alt=media" 
+                  alt="QR Nequi" 
+                  className="w-56 h-56 object-contain rounded-2xl shadow-xl border border-slate-200"
+                  referrerPolicy="no-referrer"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).style.display = 'none';
+                  }}
+                />
                 
                 <div className="w-full space-y-3">
                   <div className="text-center">
@@ -287,7 +288,7 @@ export function Payments() {
                 <input
                   type="file"
                   id="payment-file"
-                  accept="image/*"
+                  accept="image/*,application/pdf"
                   onChange={handleFileChange}
                   className="hidden"
                 />
@@ -314,7 +315,7 @@ export function Payments() {
                     <>
                       <Upload className="w-10 h-10 text-slate-500" />
                       <span className="text-sm font-bold text-slate-400">Seleccionar Comprobante</span>
-                      <span className="text-[10px] text-slate-600 uppercase font-black">JPG, PNG (Máx 5MB)</span>
+                      <span className="text-[10px] text-slate-600 uppercase font-black">JPG, PNG, WEBP, PDF (Máx 10MB)</span>
                     </>
                   )}
                 </label>

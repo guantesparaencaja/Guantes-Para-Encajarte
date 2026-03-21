@@ -236,7 +236,7 @@ export function Home() {
       dark: [darkJoke1, darkJoke2, darkJoke3]
     });
 
-    // Generate daily workout
+    // Generate daily workout - only if relevant user data changed
     if (user) {
       const workout = generateLocalWorkout(
         user.age || 25,
@@ -246,9 +246,14 @@ export function Home() {
         ['Cuerpo Completo'],
         45
       );
-      setDailyWorkout(workout);
+      
+      // Only set if different from current daily workout to avoid re-render loops
+      setDailyWorkout((prev: any) => {
+        if (JSON.stringify(prev) === JSON.stringify(workout)) return prev;
+        return workout;
+      });
     }
-  }, [user]);
+  }, [user?.age, user?.goal, user?.experience_level]);
 
   useEffect(() => {
     // Listen for the latest challenge video
@@ -289,7 +294,7 @@ export function Home() {
   const today = new Date().toISOString().split('T')[0];
   const waterCount = user?.water_intake?.date === today ? user.water_intake.count : 0;
 
-  const isSpecialUser = user?.email === 'guantesparaencajar@gmail.com' || user?.role === 'admin';
+  const isSpecialUser = user?.email === 'guantesparaencajar@gmail.com' || user?.email === 'hernandezkevin001998@gmail.com' || user?.role === 'admin';
   const isPersonalPlan = user?.plan === 'personal' && !isSpecialUser;
   
   const isWorkoutUnlocked = isSpecialUser || user?.plan === 'premium' || appSettings.workouts_unlocked;

@@ -68,14 +68,19 @@ interface AppState {
 export const useStore = create<AppState>((set) => ({
   user: null,
   theme: (localStorage.getItem('theme') as 'light' | 'dark' | 'system') || 'system',
-  hasWarmedUp: false,
+  hasWarmedUp: localStorage.getItem('warmupDate') === new Date().toDateString(),
   hasSeenVendaje: localStorage.getItem('hasSeenVendaje') === 'true',
   setUser: (user) => set({ user }),
   setTheme: (theme) => {
     localStorage.setItem('theme', theme);
     set({ theme });
   },
-  setHasWarmedUp: (hasWarmedUp) => set({ hasWarmedUp }),
+  setHasWarmedUp: (hasWarmedUp) => {
+    if (hasWarmedUp) {
+      localStorage.setItem('warmupDate', new Date().toDateString());
+    }
+    set({ hasWarmedUp });
+  },
   setHasSeenVendaje: (hasSeenVendaje) => {
     localStorage.setItem('hasSeenVendaje', String(hasSeenVendaje));
     set({ hasSeenVendaje });

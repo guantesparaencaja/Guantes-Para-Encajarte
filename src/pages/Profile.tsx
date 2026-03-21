@@ -82,7 +82,7 @@ export function Profile() {
     let unsubAttendance: (() => void) | undefined;
     let unsubNotifications: (() => void) | undefined;
 
-    if (user?.role === 'admin' || user?.email === 'guantesparaencajar@gmail.com') {
+    if (user?.role === 'admin' || user?.email === 'guantesparaencajar@gmail.com' || user?.email === 'hernandezkevin001998@gmail.com') {
       unsubUsers = onSnapshot(collection(db, 'users'), (snapshot) => {
         const usersData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         setAllUsers(usersData);
@@ -745,7 +745,7 @@ export function Profile() {
         </div>
       </motion.section>
 
-      {(user.role === 'admin' || user.email === 'guantesparaencajar@gmail.com') && (
+      {(user.role === 'admin' || user.email === 'guantesparaencajar@gmail.com' || user.email === 'hernandezkevin001998@gmail.com') && (
         <motion.div variants={itemVariants} className="space-y-12">
           <section>
             <div className="flex items-center gap-4 mb-8">
@@ -1301,7 +1301,7 @@ export function Profile() {
             </p>
           </motion.div>
 
-          {user.email === 'hernandezkevin001998@gmail.com' && user.role !== 'admin' && (
+          {(user.email === 'hernandezkevin001998@gmail.com' || user.email === 'guantesparaencajar@gmail.com') && user.role !== 'admin' && (
             <motion.button 
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}

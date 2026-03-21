@@ -60,6 +60,7 @@ export function Calendar() {
   const [ratingModal, setRatingModal] = useState<{isOpen: boolean, bookingId: string | null, rating: number, feedback: string}>({isOpen: false, bookingId: null, rating: 0, feedback: ''});
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [paymentModalBookingId, setPaymentModalBookingId] = useState<string | null>(null);
   const [isWaitlistBooking, setIsWaitlistBooking] = useState(false);
   const [cancelBookingId, setCancelBookingId] = useState<string | null>(null);
   const [showCancelModal, setShowCancelModal] = useState(false);
@@ -349,7 +350,7 @@ export function Calendar() {
         setSelectedTime(null);
         setShowMyBookings(true);
       } else {
-        setAlertModal(prev => ({ ...prev, bookingId: docRef.id }));
+        setPaymentModalBookingId(docRef.id);
         setShowPaymentModal(true);
       }
     } catch (err: any) {
@@ -509,7 +510,7 @@ END:VCALENDAR`;
   // Generate calendar days
   const monthStart = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1);
   const startDate = startOfWeek(monthStart, { weekStartsOn: 1 }); // Monday
-  const days = Array.from({ length: 35 }).map((_, i) => addDays(startDate, i));
+  const days = Array.from({ length: 42 }).map((_, i) => addDays(startDate, i));
 
   const daysOfWeekMap: Record<string, string> = {
     '0': 'Domingo', '1': 'Lunes', '2': 'Martes', '3': 'Miércoles', '4': 'Jueves', '5': 'Viernes', '6': 'Sábado'
@@ -801,14 +802,14 @@ END:VCALENDAR`;
                 <button onClick={prevMonth} className="p-2 hover:bg-slate-800 rounded-xl transition-colors text-primary">
                   <ChevronLeft className="w-5 h-5" />
                 </button>
-                <p className="text-sm font-black uppercase tracking-widest italic">{format(currentMonth, 'MMMM yyyy', { locale: es })}</p>
+                <p className="text-sm font-black uppercase tracking-widest italic">{format(currentMonth, 'MMMM yyyy', { locale: es }).replace(/^\w/, c => c.toUpperCase())}</p>
                 <button onClick={nextMonth} className="p-2 hover:bg-slate-800 rounded-xl transition-colors text-primary">
                   <ChevronRight className="w-5 h-5" />
                 </button>
               </div>
               
               <div className="grid grid-cols-7 gap-1 mb-2">
-                {['L', 'M', 'M', 'J', 'V', 'S', 'D'].map((day, i) => (
+                {['Lu', 'Ma', 'Mi', 'Ju', 'Vi', 'Sa', 'Do'].map((day, i) => (
                   <p key={i} className="text-slate-600 text-[10px] font-black flex h-8 w-full items-center justify-center uppercase">{day}</p>
                 ))}
               </div>
@@ -822,22 +823,40 @@ END:VCALENDAR`;
                   return (
                     <button 
                       key={i}
-                      onClick={() => !isPast && setSelectedDate(day)}
-                      disabled={isPast}
-                      className={`h-10 w-full text-xs font-bold rounded-xl transition-all flex items-center justify-center relative
-                        ${!isCurrentMonth ? 'text-slate-800' : 'text-slate-400'}
-                        ${isPast ? 'opacity-20 cursor-not-allowed' : 'hover:bg-primary/10'}
+                      onClick={() => !isPast && isCurrentMonth && setSelectedDate(day)}
+                      disabled={isPast || !isCurrentMonth}
+                      className={`h-10 w-full text-xs font-bold rounded-xl transition-all flex flex-col items-center justify-center relative
+                        ${!isCurrentMonth ? 'opacity-0 pointer-events-none' : ''}
+                        ${isPast && isCurrentMonth ? 'opacity-25 cursor-not-allowed text-slate-600' : ''}
+                        ${!isPast && isCurrentMonth ? 'hover:bg-primary/10 text-slate-300' : ''}
                         ${isSelected ? 'bg-primary text-white shadow-lg shadow-primary/40 scale-110 z-10' : ''}
-                        ${isSameDay(day, new Date()) && !isSelected ? 'border border-primary/30 text-primary' : ''}
+                        ${isSameDay(day, new Date()) && !isSelected && isCurrentMonth ? 'border border-primary/50 text-primary' : ''}
                       `}
                     >
                       {format(day, 'd')}
-                      {isSameDay(day, new Date()) && (
-                        <div className="absolute bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 bg-primary rounded-full"></div>
-                      )}
+                      {(() => {
+                        const dayName = daysOfWeekMap[day.getDay().toString()];
+                        const hasClasses = availabilities.some(a => a.day_of_week === dayName);
+                        return hasClasses && isCurrentMonth && !isPast && !isSelected ? (
+                          <div className="absolute bottom-1.5 w-1 h-1 bg-primary rounded-full shadow-sm shadow-primary/50"></div>
+                        ) : null;
+                      })()}
                     </button>
                   );
                 })}
+              </div>
+
+              <div className="mt-4 flex items-center justify-center gap-6 border-t border-slate-800/50 pt-4">
+                <div className="flex items-center gap-2">
+                  <div className="w-1.5 h-1.5 bg-primary rounded-full shadow-sm shadow-primary/50"></div>
+                  <span className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic">Con clases</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-5 h-5 border border-primary/50 rounded-lg flex items-center justify-center">
+                    <span className="text-[8px] font-black text-primary">H</span>
+                  </div>
+                  <span className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic">Hoy</span>
+                </div>
               </div>
             </div>
 
@@ -1098,7 +1117,7 @@ END:VCALENDAR`;
           <button
             onClick={() => {
               setShowPaymentModal(false);
-              navigate(`/payments?bookingId=${alertModal.bookingId}`);
+              navigate('/payments', { state: { bookingId: paymentModalBookingId } });
             }}
             className="w-full py-3 bg-primary text-black rounded-xl text-xs font-black uppercase tracking-widest"
           >

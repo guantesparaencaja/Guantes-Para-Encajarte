@@ -1,12 +1,13 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Play, CheckCircle } from 'lucide-react';
+import { ArrowLeft, Play, CheckCircle, ExternalLink } from 'lucide-react';
+import { useStore } from '../store/useStore';
 
-const VIDEO_CALENTAMIENTO = 'https://www.youtube.com/embed/pJNtGvOdSZA'; 
+const VIDEO_URL = 'https://www.youtube.com/watch?v=pJNtGvOdSZA'; 
 
 export const Calentamiento: React.FC = () => {
   const navigate = useNavigate();
-  const [videoStarted, setVideoStarted] = useState(false);
+  const setHasWarmedUp = useStore((state) => state.setHasWarmedUp);
 
   return (
     <div className="flex flex-col min-h-screen bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100 font-display p-4 pb-24">
@@ -23,30 +24,23 @@ export const Calentamiento: React.FC = () => {
 
       <main className="flex-1 flex flex-col gap-6 max-w-2xl mx-auto w-full">
         <div className="bg-slate-800/50 rounded-3xl border border-slate-700 overflow-hidden shadow-2xl">
-          <div className="aspect-video bg-slate-950 relative">
-            {!videoStarted ? (
-              <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center">
-                <div className="w-20 h-20 bg-primary rounded-full flex items-center justify-center mb-4 shadow-[0_0_30px_rgba(0,119,255,0.4)]">
-                  <Play className="w-10 h-10 text-white fill-current" />
-                </div>
-                <h2 className="text-2xl font-black uppercase italic mb-2">¿Listo para empezar?</h2>
-                <p className="text-slate-400 text-sm mb-6">El calentamiento reduce el riesgo de lesiones y mejora tu rendimiento.</p>
-                <button 
-                  onClick={() => setVideoStarted(true)}
-                  className="bg-primary text-white font-black uppercase italic px-8 py-3 rounded-xl hover:bg-primary/90 transition-all"
-                >
-                  Reproducir Video
-                </button>
-              </div>
-            ) : (
-              <iframe
-                src={`${VIDEO_CALENTAMIENTO}?autoplay=1`}
-                title="Calentamiento de Boxeo"
-                className="w-full h-full"
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                allowFullScreen
-              ></iframe>
-            )}
+          <div className="p-8 bg-slate-950 flex flex-col items-center justify-center text-center">
+            <div className="w-20 h-20 bg-primary/20 rounded-full flex items-center justify-center mb-6 border border-primary/30">
+              <Play className="w-10 h-10 text-primary fill-current" />
+            </div>
+            
+            <h2 className="text-2xl font-black uppercase italic mb-2">Calentamiento de Boxeo</h2>
+            <p className="text-slate-400 text-sm mb-8 max-w-xs">10 minutos — Movilidad y activación</p>
+            
+            <a 
+              href={VIDEO_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="bg-primary text-white font-black uppercase italic px-10 py-4 rounded-2xl hover:bg-primary/90 transition-all flex items-center gap-3 shadow-lg shadow-primary/40"
+            >
+              Ver Video en YouTube
+              <ExternalLink className="w-5 h-5" />
+            </a>
           </div>
           
           <div className="p-6">
@@ -81,8 +75,11 @@ export const Calentamiento: React.FC = () => {
 
         <div className="flex flex-col gap-4">
           <button 
-            onClick={() => navigate(-1)}
-            className="w-full bg-slate-800 text-white font-black uppercase italic py-4 rounded-2xl border border-slate-700 hover:bg-slate-700 transition-all"
+            onClick={() => {
+              setHasWarmedUp(true);
+              navigate(-1);
+            }}
+            className="w-full bg-primary text-white font-black uppercase italic py-4 rounded-2xl shadow-lg shadow-primary/20"
           >
             He terminado, volver a entrenos
           </button>

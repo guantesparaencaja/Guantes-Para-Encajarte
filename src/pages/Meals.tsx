@@ -643,7 +643,7 @@ export function Meals() {
                     <img src={newMeal.image_url} alt="Preview" className="w-full h-auto object-contain max-h-[400px]" />
                     <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity gap-4">
                       <span className="text-white font-bold bg-black/50 px-4 py-2 rounded-lg backdrop-blur-sm">Cambiar Imagen</span>
-                      {(user?.role === 'admin' || user?.email === 'guantesparaencajar@gmail.com') && (
+                      {(user?.role === 'admin' || user?.email === 'guantesparaencajar@gmail.com' || user?.email === 'hernandezkevin001998@gmail.com') && (
                         <button 
                           type="button"
                           onClick={(e) => {
@@ -745,7 +745,7 @@ export function Meals() {
                     <img src={meal.image_url} alt={meal.name} className="w-full h-full object-cover group-hover/img:scale-105 transition-transform duration-700" />
                     
                     {/* Admin Image Actions */}
-                    {(user?.role === 'admin' || user?.email === 'guantesparaencajar@gmail.com') && (
+                    {(user?.role === 'admin' || user?.email === 'guantesparaencajar@gmail.com' || user?.email === 'hernandezkevin001998@gmail.com') && (
                       <div className="absolute top-2 right-2 flex gap-2 opacity-0 group-hover/img:opacity-100 transition-opacity">
                         <button 
                           onClick={(e) => {
@@ -799,7 +799,7 @@ export function Meals() {
                       </div>
                     </div>
                     <div className="flex gap-2">
-                      {(user?.role === 'teacher' || user?.role === 'admin' || user?.email === 'guantesparaencajar@gmail.com') && editingNutritionId !== meal.id && (
+                      {(user?.role === 'teacher' || user?.role === 'admin' || user?.email === 'guantesparaencajar@gmail.com' || user?.email === 'hernandezkevin001998@gmail.com') && editingNutritionId !== meal.id && (
                         <button 
                           onClick={() => setEditingNutritionId(meal.id)}
                           className="text-primary text-sm font-bold hover:underline"
@@ -856,7 +856,7 @@ export function Meals() {
                       >
                         <CheckCircle2 className="w-5 h-5" />
                       </button>
-                      {(user?.role === 'admin' || user?.email === 'guantesparaencajar@gmail.com' || meal.created_by === String(user?.id)) && (
+                      {(user?.role === 'admin' || user?.email === 'guantesparaencajar@gmail.com' || user?.email === 'hernandezkevin001998@gmail.com' || meal.created_by === String(user?.id)) && (
                         <>
                           <button onClick={() => handleEditMealClick(meal)} className="p-2 bg-slate-700/50 text-slate-400 hover:text-primary rounded-lg">
                             <Edit2 className="w-4 h-4" />

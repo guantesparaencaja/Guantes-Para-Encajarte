@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { BrowserRouter, Routes, Route, useNavigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 import React, { useEffect, useState } from 'react';
 import { WifiOff } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
@@ -32,7 +32,8 @@ import { initializePushNotifications } from './lib/pushNotifications';
 function ProtectedRoute({ children, allowedRoles }: { children: React.ReactNode, allowedRoles?: string[] }) {
   const user = useStore((state) => state.user);
   const navigate = useNavigate();
-  const location = window.location.pathname;
+  const location = useLocation();
+  const pathname = location.pathname;
 
   useEffect(() => {
     if (!user) {
@@ -48,24 +49,24 @@ function ProtectedRoute({ children, allowedRoles }: { children: React.ReactNode,
     if (user.role === 'admin') return;
 
     // Navigation Guards for students
-    const isPublicPath = ['/profile', '/plans', '/payments', '/payment-review'].includes(location);
+    const isPublicPath = ['/profile', '/plans', '/payments', '/payment-review'].includes(pathname);
     
     if (!user.plan_id || user.plan_status === 'none' || !user.plan_status) {
-      if (location !== '/plans' && location !== '/profile') {
+      if (pathname !== '/plans' && pathname !== '/profile') {
         navigate('/plans');
       }
     } else if (user.plan_status === 'pending_payment') {
-      if (location !== '/payments' && location !== '/profile' && location !== '/plans') {
+      if (pathname !== '/payments' && pathname !== '/profile' && pathname !== '/plans') {
         navigate('/payments');
       }
     } else if (user.plan_status === 'pending_verification') {
-      if (location !== '/payment-review' && location !== '/profile') {
+      if (pathname !== '/payment-review' && pathname !== '/profile') {
         navigate('/payment-review');
       }
     } else if (user.plan_status === 'active') {
       // Allowed to access everything
     }
-  }, [user, navigate, location, allowedRoles]);
+  }, [user, navigate, pathname, allowedRoles]);
 
   return <>{children}</>;
 }
@@ -77,25 +78,39 @@ export default function App() {
   useClassReminders();
 
   useEffect(() => {
-    let unsubUser: (() => void) | undefined;
+    let unsubUser: (() => void) | null = null;
     const unsubscribeAuth = onAuthStateChanged(auth, async (firebaseUser) => {
+      // Clean up previous user snapshot listener if it exists
+      if (unsubUser) {
+        unsubUser();
+        unsubUser = null;
+      }
+
       if (firebaseUser) {
         const userRef = doc(db, 'users', firebaseUser.uid);
         unsubUser = onSnapshot(userRef, async (userDoc) => {
           if (userDoc.exists()) {
             const data = userDoc.data();
-            const adminEmails = ['hernandezkevin001998@gmail.com'];
-            if (firebaseUser.email && adminEmails.includes(firebaseUser.email)) {
-              if (data.role !== 'admin') {
-                await updateDoc(userRef, { role: 'admin' });
-              }
-            } else if (data.role === 'admin') {
+            const adminEmails = ['hernandezkevin001998@gmail.com', 'guantesparaencajar@gmail.com'];
+            
+            // Handle role synchronization
+            const isAdminEmail = firebaseUser.email && adminEmails.includes(firebaseUser.email);
+            if (isAdminEmail && data.role !== 'admin') {
+              await updateDoc(userRef, { role: 'admin' });
+            } else if (!isAdminEmail && data.role === 'admin') {
               await updateDoc(userRef, { role: 'student' });
             }
-            setUser({ id: firebaseUser.uid, ...data } as any);
+
+            const userData = { id: firebaseUser.uid, ...data } as any;
+            const currentUser = useStore.getState().user;
+            
+            // Only update if data actually changed to avoid infinite re-renders or excessive updates
+            if (!currentUser || JSON.stringify(userData) !== JSON.stringify(currentUser)) {
+              setUser(userData);
+            }
             initializePushNotifications(firebaseUser.uid);
           } else {
-            const adminEmails = ['hernandezkevin001998@gmail.com'];
+            const adminEmails = ['hernandezkevin001998@gmail.com', 'guantesparaencajar@gmail.com'];
             const userData = {
               name: firebaseUser.displayName || 'Usuario',
               email: firebaseUser.email,
@@ -113,7 +128,6 @@ export default function App() {
       } else {
         setUser(null);
         setLoading(false);
-        if (unsubUser) unsubUser();
       }
     });
 

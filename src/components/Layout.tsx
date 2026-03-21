@@ -36,7 +36,7 @@ export function Layout() {
     { path: '/profile', icon: User, label: 'Perfil' },
   ];
 
-  const isSpecialUser = user?.email === 'guantesparaencajar@gmail.com' || user?.role === 'admin' || user?.plan === 'premium';
+  const isSpecialUser = user?.email === 'guantesparaencajar@gmail.com' || user?.email === 'hernandezkevin001998@gmail.com' || user?.role === 'admin' || user?.plan === 'premium';
   
   const visibleNavItems = navItems.filter(item => {
     if (!item.id) return true;
