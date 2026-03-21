@@ -1,9 +1,29 @@
 import React from 'react';
 import { ShieldCheck, Video, CheckCircle } from 'lucide-react';
 import { useStore } from '../store/useStore';
+import { db } from '../lib/firebase';
+import { doc, updateDoc } from 'firebase/firestore';
 
 export function VendajeTutorial() {
+  const user = useStore((state) => state.user);
+  const setUser = useStore((state) => state.setUser);
   const setHasSeenVendaje = useStore((state) => state.setHasSeenVendaje);
+
+  const handleComplete = async () => {
+    setHasSeenVendaje(true);
+    if (user) {
+      try {
+        const userRef = doc(db, 'users', String(user.id));
+        await updateDoc(userRef, { 
+          vendaje_progreso: 100,
+          hasSeenVendaje: true 
+        });
+        setUser({ ...user, vendaje_progreso: 100 });
+      } catch (err) {
+        console.error('Error updating vendaje progress:', err);
+      }
+    }
+  };
 
   return (
     <div className="bg-slate-900 rounded-3xl p-6 border border-primary/30 shadow-2xl shadow-primary/10 mb-8 relative overflow-hidden">
@@ -49,7 +69,7 @@ export function VendajeTutorial() {
 
       <div className="flex flex-col sm:flex-row gap-3 relative z-10">
         <button 
-          onClick={() => setHasSeenVendaje(true)}
+          onClick={handleComplete}
           className="flex-1 bg-primary text-black font-black uppercase tracking-widest py-4 rounded-xl hover:bg-primary/90 transition-colors flex items-center justify-center gap-2"
         >
           <CheckCircle className="w-5 h-5" />

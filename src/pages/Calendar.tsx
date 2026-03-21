@@ -5,7 +5,8 @@ import { useNavigate } from 'react-router-dom';
 import { format, addDays, startOfWeek, addMonths, subMonths, isSameDay, isSameMonth, differenceInHours, isBefore, parse } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { db } from '../lib/firebase';
-import { collection, getDocs, addDoc, deleteDoc, doc, query, where, setDoc, onSnapshot } from 'firebase/firestore';
+import { collection, getDocs, addDoc, deleteDoc, doc, query, where, setDoc, onSnapshot, updateDoc, getDoc, serverTimestamp } from 'firebase/firestore';
+import { sendPushNotification } from '../lib/fcmService';
 import { Modal } from '../components/Modal';
 // import { sendEmail } from '../lib/email';
 
@@ -389,6 +390,29 @@ END:VCALENDAR`;
     document.body.removeChild(link);
   };
 
+  const generateGoogleCalendarUrl = (booking: Booking) => {
+    const [year, month, day] = booking.date.split('-').map(Number);
+    const [startStr, endStr] = booking.time.split(' - ');
+    
+    const [startH, startM] = startStr.split(':').map(Number);
+    const [endH, endM] = endStr.split(':').map(Number);
+    
+    const startDate = new Date(year, month - 1, day, startH, startM);
+    const endDate = new Date(year, month - 1, day, endH, endM);
+    
+    const formatDate = (date: Date) => {
+      return date.toISOString().replace(/-|:|\.\d+/g, '').substring(0, 15) + 'Z';
+    };
+
+    const baseUrl = 'https://www.google.com/calendar/render?action=TEMPLATE';
+    const text = encodeURIComponent('Clase de Boxeo - GUANTES');
+    const dates = `${formatDate(startDate)}/${formatDate(endDate)}`;
+    const details = encodeURIComponent('Clase personalizada de boxeo en GUANTES.');
+    const location = encodeURIComponent('GUANTES Boxing Club');
+
+    return `${baseUrl}&text=${text}&dates=${dates}&details=${details}&location=${location}`;
+  };
+
   const handleCancelBooking = async (bookingId: string, dateStr: string, timeStr: string) => {
     const [year, month, day] = dateStr.split('-').map(Number);
     const [startTime] = timeStr.split(' - ');
@@ -428,7 +452,21 @@ END:VCALENDAR`;
   const confirmAdminPayment = async () => {
     if (!adminConfirmPaymentId) return;
     try {
-      await setDoc(doc(db, 'bookings', adminConfirmPaymentId), { status: 'active' }, { merge: true });
+      const bookingRef = doc(db, 'bookings', adminConfirmPaymentId);
+      const bookingSnap = await getDoc(bookingRef);
+      
+      if (bookingSnap.exists()) {
+        const bookingData = bookingSnap.data();
+        await updateDoc(bookingRef, { status: 'active' });
+        
+        // Send push notification to user
+        await sendPushNotification(
+          bookingData.user_id,
+          '¡Clase Confirmada!',
+          `Tu pago para la clase del ${new Date(bookingData.date).toLocaleDateString()} ha sido aprobado. ¡Te esperamos!`
+        );
+      }
+
       setAlertModal({ show: true, message: 'Reserva confirmada exitosamente', type: 'success' });
       setShowAdminConfirmModal(false);
       setAdminConfirmPaymentId(null);
@@ -896,22 +934,17 @@ END:VCALENDAR`;
                       )}
                       
                       <div className="grid grid-cols-2 gap-2">
-                        <button
-                          onClick={() => {
-                            const [year, month, day] = (booking.date || '').split('-').map(Number);
-                            const dateObj = new Date(year, month - 1, day);
-                            const startTime = (booking.time || '').split(' - ')[0] || '00:00';
-                            const endTime = (booking.time || '').split(' - ')[1] || '00:00';
-                            const url = `https://www.google.com/calendar/render?action=TEMPLATE&text=Clase+de+Boxeo&dates=${format(dateObj, 'yyyyMMdd')}T${startTime.replace(':', '')}00/${format(dateObj, 'yyyyMMdd')}T${endTime.replace(':', '')}00&details=Clase+de+boxeo+reservada+en+GUANTES&location=Gimnasio+Decisao`;
-                            window.open(url, '_blank');
-                          }}
-                          className="flex items-center justify-center gap-2 py-3 bg-slate-800 text-slate-300 rounded-xl text-[10px] font-black uppercase tracking-widest border border-slate-700"
+                        <a
+                          href={generateGoogleCalendarUrl(booking)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center justify-center gap-2 py-3 bg-slate-800 text-slate-300 rounded-xl text-[10px] font-black uppercase tracking-widest border border-slate-700 hover:border-primary/30 transition-all"
                         >
                           <CalendarIcon className="w-3.5 h-3.5" /> Google
-                        </button>
+                        </a>
                         <button
                           onClick={() => generateICS(booking)}
-                          className="flex items-center justify-center gap-2 py-3 bg-slate-800 text-slate-300 rounded-xl text-[10px] font-black uppercase tracking-widest border border-slate-700"
+                          className="flex items-center justify-center gap-2 py-3 bg-slate-800 text-slate-300 rounded-xl text-[10px] font-black uppercase tracking-widest border border-slate-700 hover:border-primary/30 transition-all"
                         >
                           <CalendarIcon className="w-3.5 h-3.5" /> ICS
                         </button>

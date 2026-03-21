@@ -527,134 +527,140 @@ export function Workouts() {
   });
 
   return (
-    <div className="min-h-screen bg-background-light dark:bg-background-dark text-slate-900 dark:text-white pb-24">
-      <header className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 p-4 sticky top-0 z-30">
-        <div className="flex items-center gap-3">
-          <button onClick={() => navigate('/')} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors">
+    <div className="min-h-screen bg-background-light dark:bg-background-dark text-slate-900 dark:text-white pb-32 font-sans">
+      <header className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border-b border-slate-200 dark:border-slate-800 p-6 sticky top-0 z-30">
+        <div className="max-w-4xl mx-auto flex items-center gap-4">
+          <button onClick={() => navigate('/')} className="p-2.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-2xl transition-all hover:scale-105 active:scale-95">
             <ArrowLeft className="w-6 h-6 text-slate-900 dark:text-white" />
           </button>
-          <h1 className="text-xl font-bold text-slate-900 dark:text-white">Directorio de Entrenamientos</h1>
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">Directorio de Entrenamientos</h1>
         </div>
       </header>
 
-      <section className="p-4 max-w-4xl mx-auto">
-        <div className="flex flex-col md:flex-row gap-4 mb-6">
-          <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+      <section className="p-6 max-w-4xl mx-auto space-y-10">
+        <div className="space-y-6">
+          <div className="relative group">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-primary transition-colors" />
             <input 
               type="text" 
               placeholder="Buscar ejercicios..." 
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl pl-10 pr-4 py-3 text-sm focus:border-primary focus:ring-1 focus:ring-primary outline-none text-slate-900 dark:text-white"
+              className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl pl-12 pr-4 py-4 text-base focus:border-primary focus:ring-4 focus:ring-primary/10 outline-none text-slate-900 dark:text-white shadow-sm transition-all"
             />
           </div>
-          <div className="flex gap-2 overflow-x-auto hide-scrollbar pb-2 md:pb-0">
-            <button
-              onClick={() => setSelectedDifficulty(null)}
-              className={`whitespace-nowrap px-4 py-2 rounded-xl text-sm font-bold transition-all ${!selectedDifficulty ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'bg-white dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700'}`}
-            >
-              Todas (Dificultad)
-            </button>
-            {['principiante', 'intermedio', 'avanzado'].map(diff => (
-              <button
-                key={diff}
-                onClick={() => setSelectedDifficulty(diff)}
-                className={`whitespace-nowrap px-4 py-2 rounded-xl text-sm font-bold transition-all capitalize ${selectedDifficulty === diff ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'bg-white dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700'}`}
-              >
-                {diff}
-              </button>
-            ))}
-          </div>
           
-          <div className="flex gap-2 overflow-x-auto hide-scrollbar pb-2 md:pb-0 mt-2">
-            <button
-              onClick={() => setSelectedEquipment(null)}
-              className={`whitespace-nowrap px-4 py-2 rounded-xl text-sm font-bold transition-all ${!selectedEquipment ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'bg-white dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700'}`}
-            >
-              Cualquier Equipo
-            </button>
-            {['Sin equipo', 'Saco pesado', 'Con compañero', 'Mancuernas', 'Kettlebell', 'Bandas', 'Barra'].map(eq => (
+          <div className="space-y-4">
+            <div className="flex gap-2 overflow-x-auto hide-scrollbar pb-2">
               <button
-                key={eq}
-                onClick={() => setSelectedEquipment(eq)}
-                className={`whitespace-nowrap px-4 py-2 rounded-xl text-sm font-bold transition-all ${selectedEquipment === eq ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'bg-white dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700'}`}
+                onClick={() => setSelectedDifficulty(null)}
+                className={`whitespace-nowrap px-5 py-2.5 rounded-2xl text-sm font-bold transition-all ${!selectedDifficulty ? 'bg-primary text-white shadow-lg shadow-primary/30' : 'bg-white dark:bg-slate-900 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-800 hover:border-primary/30'}`}
               >
-                {eq}
+                Todas las dificultades
               </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="flex justify-between items-end mb-4">
-          <div>
-            <h2 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">Categorías</h2>
-            <p className="text-slate-500 dark:text-slate-400 text-sm">Explora los entrenamientos disponibles.</p>
-          </div>
-        </div>
-        
-        {(user?.role === 'admin' || user?.role === 'teacher') && (
-          <div className="mb-8 bg-white dark:bg-slate-800/50 p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="font-bold text-lg flex items-center gap-2 text-slate-900 dark:text-white"><Dumbbell className="w-5 h-5 text-primary" /> Gestionar Categorías</h2>
-              <div className="flex gap-2">
-                {categories.length === 0 && (
-                  <button onClick={seedMuscleWikiVideos} className="bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-white px-3 py-2 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-600 text-sm font-medium">
-                    Cargar Videos de Prueba
-                  </button>
-                )}
-                <button onClick={() => setShowAddCategory(!showAddCategory)} className="bg-primary text-white p-2 rounded-lg hover:bg-primary/90">
-                  <Plus className="w-4 h-4" />
+              {['principiante', 'intermedio', 'avanzado'].map(diff => (
+                <button
+                  key={diff}
+                  onClick={() => setSelectedDifficulty(diff)}
+                  className={`whitespace-nowrap px-5 py-2.5 rounded-2xl text-sm font-bold transition-all capitalize ${selectedDifficulty === diff ? 'bg-primary text-white shadow-lg shadow-primary/30' : 'bg-white dark:bg-slate-900 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-800 hover:border-primary/30'}`}
+                >
+                  {diff}
                 </button>
-              </div>
+              ))}
             </div>
             
-            {showAddCategory && (
-              <form onSubmit={handleAddCategory} className="flex gap-2 mb-4">
-                <input 
-                  type="text" 
-                  value={newCategoryName} 
-                  onChange={e => setNewCategoryName(e.target.value)} 
-                  placeholder="Nueva categoría (ej. Pecho)" 
-                  className="flex-1 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white"
-                  required
-                />
-                <button type="submit" className="bg-emerald-500 text-white px-4 py-2 rounded-lg text-sm font-bold">Agregar</button>
-              </form>
-            )}
-
-            <div className="flex flex-wrap gap-2">
-              {categories.map(cat => (
-                <div key={cat.id} className="flex items-center gap-2 bg-slate-50 dark:bg-slate-900 px-3 py-1.5 rounded-full border border-slate-200 dark:border-slate-700">
-                  <span className="text-sm text-slate-600 dark:text-slate-300">{cat.name}</span>
-                  <button onClick={() => handleDeleteCategory(cat.id)} className="text-red-500 hover:text-red-400"><Trash2 className="w-3 h-3" /></button>
-                </div>
+            <div className="flex gap-2 overflow-x-auto hide-scrollbar pb-2">
+              <button
+                onClick={() => setSelectedEquipment(null)}
+                className={`whitespace-nowrap px-5 py-2.5 rounded-2xl text-sm font-bold transition-all ${!selectedEquipment ? 'bg-primary text-white shadow-lg shadow-primary/30' : 'bg-white dark:bg-slate-900 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-800 hover:border-primary/30'}`}
+              >
+                Cualquier Equipo
+              </button>
+              {['Sin equipo', 'Saco pesado', 'Con compañero', 'Mancuernas', 'Kettlebell', 'Bandas', 'Barra'].map(eq => (
+                <button
+                  key={eq}
+                  onClick={() => setSelectedEquipment(eq)}
+                  className={`whitespace-nowrap px-5 py-2.5 rounded-2xl text-sm font-bold transition-all ${selectedEquipment === eq ? 'bg-primary text-white shadow-lg shadow-primary/30' : 'bg-white dark:bg-slate-900 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-800 hover:border-primary/30'}`}
+                >
+                  {eq}
+                </button>
               ))}
             </div>
           </div>
-        )}
+        </div>
 
-        {/* Categories Tabs */}
-        <div className="flex overflow-x-auto hide-scrollbar gap-2 mb-6 pb-2">
-          <button
-            onClick={() => setSelectedCategory(null)}
-            className={`whitespace-nowrap px-4 py-2 rounded-full text-sm font-bold transition-all ${!selectedCategory ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'bg-white dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700'}`}
-          >
-            Todos
-          </button>
-          {categories.map(cat => (
+        <div className="space-y-6">
+          <div className="flex justify-between items-end">
+            <div>
+              <h2 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white">Categorías</h2>
+              <p className="text-slate-500 dark:text-slate-400 text-base mt-1">Explora los entrenamientos disponibles por grupo muscular.</p>
+            </div>
+          </div>
+          
+          {(user?.role === 'admin' || user?.role === 'teacher') && (
+            <div className="glass-card p-8 rounded-[2rem] space-y-6">
+              <div className="flex justify-between items-center">
+                <h2 className="font-bold text-xl flex items-center gap-3 text-slate-900 dark:text-white">
+                  <Dumbbell className="w-6 h-6 text-primary" /> Gestionar Categorías
+                </h2>
+                <div className="flex gap-3">
+                  {categories.length === 0 && (
+                    <button onClick={seedMuscleWikiVideos} className="bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-white px-4 py-2.5 rounded-xl hover:bg-slate-200 dark:hover:bg-slate-700 text-sm font-bold transition-all">
+                      Cargar Videos de Prueba
+                    </button>
+                  )}
+                  <button onClick={() => setShowAddCategory(!showAddCategory)} className="bg-primary text-white p-3 rounded-xl hover:bg-primary/90 shadow-lg shadow-primary/20 transition-all">
+                    <Plus className="w-5 h-5" />
+                  </button>
+                </div>
+              </div>
+              
+              {showAddCategory && (
+                <form onSubmit={handleAddCategory} className="flex gap-3 animate-in fade-in slide-in-from-top-4 duration-300">
+                  <input 
+                    type="text" 
+                    value={newCategoryName} 
+                    onChange={e => setNewCategoryName(e.target.value)} 
+                    placeholder="Nueva categoría (ej. Pecho)" 
+                    className="flex-1 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-3 text-base text-slate-900 dark:text-white focus:border-primary outline-none"
+                    required
+                  />
+                  <button type="submit" className="bg-emerald-500 text-white px-6 py-3 rounded-xl text-base font-bold shadow-lg shadow-emerald-500/20 hover:bg-emerald-600 transition-all">Agregar</button>
+                </form>
+              )}
+
+              <div className="flex flex-wrap gap-3">
+                {categories.map(cat => (
+                  <div key={cat.id} className="flex items-center gap-3 bg-slate-50 dark:bg-slate-950 px-4 py-2 rounded-2xl border border-slate-200 dark:border-slate-800 group hover:border-primary/30 transition-all">
+                    <span className="text-base font-medium text-slate-700 dark:text-slate-300">{cat.name}</span>
+                    <button onClick={() => handleDeleteCategory(cat.id)} className="text-slate-400 hover:text-red-500 transition-colors"><Trash2 className="w-4 h-4" /></button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div className="flex overflow-x-auto hide-scrollbar gap-3 pb-2">
             <button
-              key={cat.id}
-              onClick={() => setSelectedCategory(cat.id)}
-              className={`whitespace-nowrap px-4 py-2 rounded-full text-sm font-bold transition-all ${selectedCategory === cat.id ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'bg-white dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700'}`}
+              onClick={() => setSelectedCategory(null)}
+              className={`whitespace-nowrap px-6 py-3 rounded-2xl text-base font-bold transition-all ${!selectedCategory ? 'bg-primary text-white shadow-xl shadow-primary/30' : 'bg-white dark:bg-slate-900 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-800 hover:border-primary/30'}`}
             >
-              {cat.name}
+              Todos
             </button>
-          ))}
+            {categories.map(cat => (
+              <button
+                key={cat.id}
+                onClick={() => setSelectedCategory(cat.id)}
+                className={`whitespace-nowrap px-6 py-3 rounded-2xl text-base font-bold transition-all ${selectedCategory === cat.id ? 'bg-primary text-white shadow-xl shadow-primary/30' : 'bg-white dark:bg-slate-900 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-800 hover:border-primary/30'}`}
+              >
+                {cat.name}
+              </button>
+            ))}
+          </div>
         </div>
 
         {(user?.role === 'admin' || user?.role === 'teacher') && selectedCategory && (
-          <div className="mb-8">
+          <div className="space-y-6">
             <button 
               onClick={() => {
                 setShowAddVideo(!showAddVideo);
@@ -663,155 +669,191 @@ export function Workouts() {
                   setNewVideo({ title: '', description: '', video_url: '', difficulty: 'principiante' });
                 }
               }}
-              className="w-full bg-white dark:bg-slate-800 border border-dashed border-slate-300 dark:border-slate-600 text-slate-500 dark:text-slate-300 py-3 rounded-xl font-bold flex items-center justify-center gap-2 hover:border-primary hover:text-primary transition-colors"
+              className="w-full bg-white dark:bg-slate-900 border-2 border-dashed border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 py-5 rounded-[2rem] font-bold flex items-center justify-center gap-3 hover:border-primary hover:text-primary transition-all group shadow-sm"
             >
-              <Plus className="w-5 h-5" /> {showAddVideo ? 'Cancelar' : 'Agregar Video o Combo a esta Categoría'}
+              <Plus className="w-6 h-6 group-hover:scale-110 transition-transform" /> {showAddVideo ? 'Cancelar' : 'Agregar Video o Combo a esta Categoría'}
             </button>
 
             {showAddVideo && (
-              <form onSubmit={handleAddVideo} className="bg-white dark:bg-slate-800/50 p-4 rounded-xl border border-slate-200 dark:border-slate-700 mt-4 flex flex-col gap-3 shadow-sm">
-                <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-2">{editingVideo ? 'Editar Entrenamiento' : 'Nuevo Entrenamiento'}</h3>
-                <input 
-                  type="text" 
-                  placeholder="Título del ejercicio o combo" 
-                  value={newVideo.title} 
-                  onChange={e => setNewVideo({...newVideo, title: e.target.value})} 
-                  className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white" 
-                  required 
-                />
-                <textarea 
-                  placeholder="Descripción corta (para la tarjeta)" 
-                  value={newVideo.description} 
-                  onChange={e => setNewVideo({...newVideo, description: e.target.value})} 
-                  className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white resize-none h-20" 
-                  required 
-                />
-                <textarea 
-                  placeholder="Instrucciones detalladas" 
-                  value={newVideo.instructions} 
-                  onChange={e => setNewVideo({...newVideo, instructions: e.target.value})} 
-                  className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white resize-none h-24" 
-                />
-                <textarea 
-                  placeholder="Errores comunes a evitar" 
-                  value={newVideo.common_errors} 
-                  onChange={e => setNewVideo({...newVideo, common_errors: e.target.value})} 
-                  className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white resize-none h-24" 
-                />
-                <div className="flex flex-col gap-2">
-                  <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase">Dificultad</label>
-                  <select 
-                    value={newVideo.difficulty}
-                    onChange={e => setNewVideo({...newVideo, difficulty: e.target.value})}
-                    className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white outline-none focus:border-primary"
-                  >
-                    <option value="principiante">Principiante</option>
-                    <option value="intermedio">Intermedio</option>
-                    <option value="avanzado">Avanzado</option>
-                  </select>
-                </div>
-                <div className="flex flex-col gap-2">
-                  <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase">Equipo Necesario</label>
-                  <select 
-                    value={newVideo.equipment || 'Sin equipo'}
-                    onChange={e => setNewVideo({...newVideo, equipment: e.target.value})}
-                    className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white outline-none focus:border-primary"
-                  >
-                    <option value="Sin equipo">Sin equipo</option>
-                    <option value="Saco pesado">Saco pesado</option>
-                    <option value="Con compañero">Con compañero</option>
-                    <option value="Mancuernas">Mancuernas</option>
-                    <option value="Kettlebell">Kettlebell</option>
-                    <option value="Bandas">Bandas</option>
-                    <option value="Barra">Barra</option>
-                  </select>
-                </div>
-                <div className="flex flex-col gap-2">
-                  <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase">Multimedia (Opcional para Combos)</label>
-                  <input 
-                    type="file" 
-                    accept="video/mp4,video/x-m4v,video/*,image/gif" 
-                    onChange={handleVideoUpload}
-                    disabled={uploadProgress !== null}
-                    className="text-sm text-slate-500 dark:text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-bold file:bg-primary/20 file:text-primary hover:file:bg-primary/30 disabled:opacity-50"
-                  />
-                  {uploadProgress !== null && (
-                    <div className="w-full bg-slate-200 dark:bg-slate-700 h-2 rounded-full overflow-hidden mt-1">
-                      <div className="bg-primary h-full transition-all duration-300" style={{ width: `${uploadProgress}%` }}></div>
+              <form onSubmit={handleAddVideo} className="glass-card p-8 rounded-[2rem] space-y-6 animate-in fade-in slide-in-from-top-4 duration-300">
+                <h3 className="text-2xl font-bold text-slate-900 dark:text-white">{editingVideo ? 'Editar Entrenamiento' : 'Nuevo Entrenamiento'}</h3>
+                
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <label className="text-xs font-black text-slate-400 uppercase tracking-[0.2em] ml-1">Título</label>
+                    <input 
+                      type="text" 
+                      placeholder="Título del ejercicio o combo" 
+                      value={newVideo.title} 
+                      onChange={e => setNewVideo({...newVideo, title: e.target.value})} 
+                      className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl px-4 py-4 text-base text-slate-900 dark:text-white focus:border-primary outline-none" 
+                      required 
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-xs font-black text-slate-400 uppercase tracking-[0.2em] ml-1">Descripción corta</label>
+                    <textarea 
+                      placeholder="Descripción para la tarjeta..." 
+                      value={newVideo.description} 
+                      onChange={e => setNewVideo({...newVideo, description: e.target.value})} 
+                      className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl px-4 py-4 text-base text-slate-900 dark:text-white resize-none h-24 focus:border-primary outline-none" 
+                      required 
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <label className="text-xs font-black text-slate-400 uppercase tracking-[0.2em] ml-1">Instrucciones detalladas</label>
+                      <textarea 
+                        placeholder="Paso a paso..." 
+                        value={newVideo.instructions} 
+                        onChange={e => setNewVideo({...newVideo, instructions: e.target.value})} 
+                        className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl px-4 py-4 text-base text-slate-900 dark:text-white resize-none h-32 focus:border-primary outline-none" 
+                      />
                     </div>
-                  )}
-                  <span className="text-xs text-slate-500 text-center my-1">O pega una URL</span>
-                  <input 
-                    type="url" 
-                    placeholder="URL del video (YouTube, Vimeo) o deja vacío para Combo" 
-                    value={newVideo.video_url} 
-                    onChange={e => setNewVideo({...newVideo, video_url: e.target.value})} 
-                    className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white" 
-                  />
-                  <p className="text-[10px] text-slate-500 italic">* Si no agregas video, se guardará como un "Combo" de ejercicios.</p>
+                    <div className="space-y-2">
+                      <label className="text-xs font-black text-slate-400 uppercase tracking-[0.2em] ml-1">Errores comunes</label>
+                      <textarea 
+                        placeholder="Qué evitar..." 
+                        value={newVideo.common_errors} 
+                        onChange={e => setNewVideo({...newVideo, common_errors: e.target.value})} 
+                        className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl px-4 py-4 text-base text-slate-900 dark:text-white resize-none h-32 focus:border-primary outline-none" 
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <label className="text-xs font-black text-slate-400 uppercase tracking-[0.2em] ml-1">Dificultad</label>
+                      <select 
+                        value={newVideo.difficulty}
+                        onChange={e => setNewVideo({...newVideo, difficulty: e.target.value})}
+                        className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl px-4 py-4 text-base text-slate-900 dark:text-white outline-none focus:border-primary appearance-none"
+                      >
+                        <option value="principiante">Principiante</option>
+                        <option value="intermedio">Intermedio</option>
+                        <option value="avanzado">Avanzado</option>
+                      </select>
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-xs font-black text-slate-400 uppercase tracking-[0.2em] ml-1">Equipo Necesario</label>
+                      <select 
+                        value={newVideo.equipment || 'Sin equipo'}
+                        onChange={e => setNewVideo({...newVideo, equipment: e.target.value})}
+                        className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl px-4 py-4 text-base text-slate-900 dark:text-white outline-none focus:border-primary appearance-none"
+                      >
+                        <option value="Sin equipo">Sin equipo</option>
+                        <option value="Saco pesado">Saco pesado</option>
+                        <option value="Con compañero">Con compañero</option>
+                        <option value="Mancuernas">Mancuernas</option>
+                        <option value="Kettlebell">Kettlebell</option>
+                        <option value="Bandas">Bandas</option>
+                        <option value="Barra">Barra</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="space-y-4">
+                    <label className="text-xs font-black text-slate-400 uppercase tracking-[0.2em] ml-1">Multimedia</label>
+                    <div className="bg-slate-50 dark:bg-slate-950 border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-2xl p-8 flex flex-col items-center gap-4">
+                      <Upload className="w-10 h-10 text-slate-300" />
+                      <input 
+                        type="file" 
+                        accept="video/mp4,video/x-m4v,video/*,image/gif" 
+                        onChange={handleVideoUpload}
+                        disabled={uploadProgress !== null}
+                        className="text-sm text-slate-500 dark:text-slate-400 file:mr-4 file:py-2.5 file:px-6 file:rounded-xl file:border-0 file:text-sm file:font-bold file:bg-primary/20 file:text-primary hover:file:bg-primary/30 disabled:opacity-50 cursor-pointer"
+                      />
+                      {uploadProgress !== null && (
+                        <div className="w-full max-w-xs bg-slate-200 dark:bg-slate-800 h-2 rounded-full overflow-hidden mt-2">
+                          <div className="bg-primary h-full transition-all duration-300" style={{ width: `${uploadProgress}%` }}></div>
+                        </div>
+                      )}
+                    </div>
+                    <div className="relative">
+                      <div className="absolute inset-0 flex items-center">
+                        <div className="w-full border-t border-slate-200 dark:border-slate-800"></div>
+                      </div>
+                      <div className="relative flex justify-center text-xs uppercase">
+                        <span className="bg-white dark:bg-slate-900 px-4 text-slate-500 font-bold tracking-widest">O pega una URL</span>
+                      </div>
+                    </div>
+                    <input 
+                      type="url" 
+                      placeholder="URL de YouTube, Vimeo..." 
+                      value={newVideo.video_url} 
+                      onChange={e => setNewVideo({...newVideo, video_url: e.target.value})} 
+                      className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl px-4 py-4 text-base text-slate-900 dark:text-white focus:border-primary outline-none" 
+                    />
+                    <p className="text-xs text-slate-500 italic text-center">* Si no agregas video, se guardará como un "Combo" de ejercicios.</p>
+                  </div>
                 </div>
-                <button type="submit" className="bg-primary text-white font-bold py-2 rounded-lg mt-2">Guardar Entrenamiento</button>
+
+                <button type="submit" className="w-full bg-primary text-white font-black py-5 rounded-2xl uppercase tracking-[0.2em] shadow-xl shadow-primary/25 hover:scale-[1.02] active:scale-[0.98] transition-all">
+                  Guardar Entrenamiento
+                </button>
               </form>
             )}
           </div>
         )}
 
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-8">
           {filteredVideos.length === 0 ? (
-            <div className="col-span-full text-center py-10 bg-white dark:bg-slate-800/30 rounded-2xl border border-slate-200 dark:border-slate-700/50">
-              <Video className="w-12 h-12 text-slate-300 dark:text-slate-600 mx-auto mb-3" />
-              <p className="text-slate-500 dark:text-slate-400">No hay videos en esta categoría.</p>
+            <div className="col-span-full text-center py-20 glass-card rounded-[2rem] border-dashed">
+              <Video className="w-16 h-16 text-slate-300 dark:text-slate-700 mx-auto mb-4" />
+              <p className="text-slate-500 dark:text-slate-400 text-lg font-medium">No hay videos en esta categoría.</p>
             </div>
           ) : (
             filteredVideos.map(video => (
-              <div key={video.id} onClick={() => handleVideoClick(video)} className="flex flex-col gap-2 group cursor-pointer rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/50 hover:border-primary/50 transition-colors shadow-sm">
-                <div className="relative aspect-[16/9] bg-slate-100 dark:bg-slate-900">
+              <div key={video.id} onClick={() => handleVideoClick(video)} className="flex flex-col glass-card rounded-[2rem] overflow-hidden group cursor-pointer hover:border-primary/40 hover:shadow-2xl hover:shadow-primary/5 transition-all duration-500">
+                <div className="relative aspect-[16/10] bg-slate-100 dark:bg-slate-950 overflow-hidden">
                   {video.video_url ? (
                     (() => {
                       const videoSrc = getYouTubeEmbedUrl(video.video_url);
                       return videoSrc.includes('youtube.com') || videoSrc.includes('youtu.be') ? (
                         <iframe 
                           src={videoSrc} 
-                          className="absolute inset-0 w-full h-full object-cover pointer-events-none"
+                          className="absolute inset-0 w-full h-full object-cover pointer-events-none scale-105 group-hover:scale-110 transition-transform duration-700"
                           allowFullScreen
                         ></iframe>
                       ) : videoSrc.toLowerCase().endsWith('.gif') ? (
                         <img 
                           src={videoSrc} 
                           alt={video.title}
-                          className="absolute inset-0 w-full h-full object-cover"
+                          className="absolute inset-0 w-full h-full object-cover scale-105 group-hover:scale-110 transition-transform duration-700"
                           referrerPolicy="no-referrer"
                         />
                       ) : (
                         <video 
                           src={videoSrc} 
-                          className="absolute inset-0 w-full h-full object-cover" 
+                          className="absolute inset-0 w-full h-full object-cover scale-105 group-hover:scale-110 transition-transform duration-700" 
                           muted
                           playsInline
                         />
                       );
                     })()
                   ) : (
-                    <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-100 dark:bg-slate-900 text-slate-400 dark:text-slate-600">
-                      <Dumbbell className="w-8 h-8 mb-2" />
-                      <span className="text-[10px] font-bold uppercase tracking-widest">Combo</span>
+                    <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-100 dark:bg-slate-950 text-slate-400 dark:text-slate-700">
+                      <Dumbbell className="w-12 h-12 mb-3 group-hover:scale-110 transition-transform duration-500" />
+                      <span className="text-xs font-black uppercase tracking-[0.3em]">Combo</span>
                     </div>
                   )}
                   
-                  <div className="absolute inset-0 bg-black/10 group-hover:bg-black/30 transition-colors flex items-center justify-center">
-                    <div className="bg-white/90 dark:bg-slate-800/90 text-primary p-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity transform scale-75 group-hover:scale-100">
-                      <Info className="w-5 h-5" />
+                  <div className="absolute inset-0 bg-black/10 group-hover:bg-black/30 transition-all duration-500 flex items-center justify-center">
+                    <div className="bg-white/90 dark:bg-slate-900/90 text-primary p-3 rounded-2xl opacity-0 group-hover:opacity-100 transition-all duration-300 transform translate-y-4 group-hover:translate-y-0 shadow-xl">
+                      <Play className="w-6 h-6 fill-current" />
                     </div>
                   </div>
                   
                   {(user?.role === 'admin' || user?.role === 'teacher') && (
-                    <div className="absolute top-2 right-2 flex gap-2 z-30 opacity-100 transition-opacity shadow-lg">
+                    <div className="absolute top-4 right-4 flex gap-2 z-30 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
                       <button 
                         onClick={(e) => {
                           e.stopPropagation();
                           startEditVideo(video);
                         }}
-                        className="bg-blue-500 text-white p-2 rounded-full hover:bg-blue-600"
+                        className="bg-white/90 dark:bg-slate-900/90 text-blue-500 p-2.5 rounded-xl hover:bg-blue-500 hover:text-white transition-all shadow-lg"
                       >
                         <Settings className="w-4 h-4" />
                       </button>
@@ -820,24 +862,24 @@ export function Workouts() {
                           e.stopPropagation();
                           handleDeleteVideo(video.id);
                         }}
-                        className="bg-red-500 text-white p-2 rounded-full hover:bg-red-600"
+                        className="bg-white/90 dark:bg-slate-900/90 text-red-500 p-2.5 rounded-xl hover:bg-red-500 hover:text-white transition-all shadow-lg"
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
                     </div>
                   )}
                 </div>
-                <div className="p-3">
-                  <h4 className="font-bold text-sm leading-tight text-slate-900 dark:text-white line-clamp-2">{video.title}</h4>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-2 mt-1">{video.description}</p>
-                  <div className="flex flex-wrap gap-1 mt-2">
+                <div className="p-5 flex flex-col flex-1">
+                  <h4 className="font-bold text-lg leading-tight text-slate-900 dark:text-white line-clamp-2 group-hover:text-primary transition-colors">{video.title}</h4>
+                  <p className="text-sm text-slate-500 dark:text-slate-400 line-clamp-2 mt-2 flex-1">{video.description}</p>
+                  <div className="flex flex-wrap gap-2 mt-4">
                     {video.difficulty && (
-                      <span className="inline-block text-[10px] font-bold uppercase tracking-wider bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 px-2 py-1 rounded">
+                      <span className="inline-block text-[10px] font-black uppercase tracking-[0.15em] bg-slate-100 dark:bg-slate-900 text-slate-600 dark:text-slate-400 px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-800">
                         {video.difficulty}
                       </span>
                     )}
                     {video.equipment && (
-                      <span className="inline-block text-[10px] font-bold uppercase tracking-wider bg-primary/10 text-primary px-2 py-1 rounded">
+                      <span className="inline-block text-[10px] font-black uppercase tracking-[0.15em] bg-primary/10 text-primary px-2.5 py-1 rounded-lg border border-primary/20">
                         {video.equipment}
                       </span>
                     )}

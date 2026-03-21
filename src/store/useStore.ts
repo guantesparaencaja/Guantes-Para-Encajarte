@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 
 interface User {
-  id: number;
+  id: string;
   name: string;
   email: string;
   weight: number;
@@ -40,7 +40,13 @@ interface User {
   weight_logs?: Record<string, string>;
   custom_routines?: any[];
   xp?: number;
+  progreso_total?: number;
+  vendaje_progreso?: number;
   plan?: string;
+  plan_id?: string;
+  plan_name?: string;
+  plan_status?: 'active' | 'pending' | 'inactive';
+  plan_start_date?: any;
   last_workout?: string;
 }
 

@@ -1,10 +1,11 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useStore } from '../store/useStore';
-import { PlayCircle, CheckCircle, Lock, ArrowLeft, Upload, Check, Video, Plus, X, Edit2, Trash2, Play } from 'lucide-react';
+import { PlayCircle, CheckCircle, Lock, ArrowLeft, Upload, Check, Video, Plus, X, Edit2, Trash2, Play, Loader2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { storage, db } from '../lib/firebase';
 import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
-import { collection, getDocs, addDoc, deleteDoc, doc, updateDoc, query, where, serverTimestamp } from 'firebase/firestore';
+import { collection, getDocs, addDoc, deleteDoc, doc, updateDoc, query, where, serverTimestamp, getDoc, setDoc } from 'firebase/firestore';
+import { sendPushNotification } from '../lib/fcmService';
 import { InteractiveLesson } from '../components/InteractiveLesson';
 import { BoxingGlossary } from '../components/BoxingGlossary';
 import { VendajeTutorial } from '../components/VendajeTutorial';
@@ -61,6 +62,102 @@ export function Saberes() {
   const [newTutorial, setNewTutorial] = useState({ title: '', description: '', duration: 60, level: 1, category: 'técnica', video_url: '' });
   const [confirmDialog, setConfirmDialog] = useState<{isOpen: boolean, title: string, message: string, confirmText?: string, onConfirm: () => void}>({isOpen: false, title: '', message: '', onConfirm: () => {}});
   const [activeLesson, setActiveLesson] = useState<Tutorial | null>(null);
+  const [showVendajes, setShowVendajes] = useState(false);
+  const [showEvaluations, setShowEvaluations] = useState(false);
+  const [evaluationType, setEvaluationType] = useState<'manillas' | 'contacto' | 'combo' | null>(null);
+  const [evaluations, setEvaluations] = useState<any[]>([]);
+  const [adminFeedback, setAdminFeedback] = useState<{ [key: string]: string }>({});
+  const [isUpdating, setIsUpdating] = useState<string | null>(null);
+
+  const userEvaluation = evaluations.find(e => e.user_id === String(user?.id));
+
+  const fetchEvaluations = async () => {
+    if (!user) return;
+    try {
+      let q;
+      if (user.role === 'admin' || user.role === 'teacher') {
+        q = query(collection(db, 'evaluations'));
+      } else {
+        q = query(collection(db, 'evaluations'), where('user_id', '==', String(user.id)));
+      }
+      const snapshot = await getDocs(q);
+      setEvaluations(snapshot.docs.map(doc => ({ id: doc.id, ...(doc.data() as any) })));
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleApproveEvaluation = async (evaluationId: string, userId: string, type: string) => {
+    setIsUpdating(`${evaluationId}_${type}`);
+    try {
+      await updateDoc(doc(db, 'evaluations', evaluationId), { 
+        [type]: 'aprobado',
+        [`feedback_${type}`]: '',
+        fecha: serverTimestamp()
+      });
+      
+      // Award XP
+      const userRef = doc(db, 'users', userId);
+      const userSnap = await getDoc(userRef);
+      if (userSnap.exists()) {
+        const userData = userSnap.data();
+        const currentXP = userData.xp || 0;
+        const newXP = currentXP + 50;
+        const newLevel = Math.floor(newXP / 100) + 1;
+        
+        await updateDoc(userRef, { 
+          xp: newXP,
+          license_level: newLevel
+        });
+
+        await sendPushNotification(
+          userId,
+          '✅ ¡Evaluación Aprobada!',
+          `Tu evaluación de ${type} ha sido aprobada. +50 XP y nivel ${newLevel}!`
+        );
+      }
+      
+      fetchEvaluations();
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsUpdating(null);
+    }
+  };
+
+  const handleRejectEvaluation = async (evaluationId: string, userId: string, type: string) => {
+    const feedback = adminFeedback[`${evaluationId}_${type}`];
+    if (!feedback || feedback.trim().length < 5) {
+      alert('Por favor ingresa un feedback constructivo (mínimo 5 caracteres).');
+      return;
+    }
+
+    setIsUpdating(`${evaluationId}_${type}`);
+    try {
+      await updateDoc(doc(db, 'evaluations', evaluationId), { 
+        [type]: 'rechazado',
+        [`feedback_${type}`]: feedback,
+        fecha: serverTimestamp()
+      });
+
+      await sendPushNotification(
+        userId,
+        '❌ Evaluación: Requiere Mejora',
+        `Tu evaluación de ${type} necesita ajustes. Feedback: ${feedback}`
+      );
+      
+      setAdminFeedback(prev => {
+        const next = { ...prev };
+        delete next[`${evaluationId}_${type}`];
+        return next;
+      });
+      fetchEvaluations();
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsUpdating(null);
+    }
+  };
 
   const handleTutorialClick = (tutorial: Tutorial) => {
     const isWarmup = tutorial.category.toLowerCase().includes('calentamiento') || tutorial.category.toLowerCase().includes('movilidad');
@@ -115,6 +212,7 @@ export function Saberes() {
     fetchTutorials();
     fetchCombos();
     fetchComboProgress();
+    fetchEvaluations();
   }, [user]);
 
   const fetchTutorials = async () => {
@@ -331,10 +429,19 @@ export function Saberes() {
     });
   };
 
-  const handleApproveCombo = async (comboId: string, type: 'golpeo' | 'saco' | 'manillas') => {
+  const handleApproveCombo = async (comboId: string, type: 'golpeo' | 'saco' | 'manillas', userId: string) => {
     try {
       const comboRef = doc(db, 'combos', comboId);
       await updateDoc(comboRef, { [`${type}_approved`]: true });
+      
+      // Send notification
+      await sendPushNotification(
+        userId,
+        '✅ ¡Combo Aprobado!',
+        `Tu progreso en ${type} para este combo ha sido aprobado. ¡Sigue así!`,
+        'success'
+      );
+      
       fetchCombos();
     } catch (err) {
       console.error(err);
@@ -372,13 +479,28 @@ export function Saberes() {
 
       <BoxingGlossary />
 
-      {!hasSeenVendaje ? (
+      {(!hasSeenVendaje && user?.vendaje_progreso !== 100) ? (
         <VendajeTutorial />
       ) : (
         <>
           <section className="mb-6">
-            <h2 className="text-3xl font-bold tracking-tight mb-2">Aprender Boxeo</h2>
-        <p className="text-slate-400 mb-6">Tutoriales y videos explicativos para cada habilidad.</p>
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-3xl font-bold tracking-tight">Aprender Boxeo</h2>
+              <button 
+                onClick={() => setShowVendajes(!showVendajes)}
+                className="text-primary text-sm font-bold flex items-center gap-1"
+              >
+                {showVendajes ? 'Ocultar Vendajes' : 'Ver Vendajes'}
+              </button>
+            </div>
+            
+            {showVendajes && (
+              <div className="mb-8 animate-in fade-in slide-in-from-top-4">
+                <VendajeTutorial />
+              </div>
+            )}
+
+            <p className="text-slate-400 mb-6">Tutoriales y videos explicativos para cada habilidad.</p>
         
         {(user?.role === 'admin' || user?.role === 'teacher') && (
           <div className="mb-6">
@@ -560,6 +682,135 @@ export function Saberes() {
             <div className="bg-primary h-full shadow-[0_0_12px_rgba(0,119,255,0.6)] transition-all duration-500" style={{ width: `${((user?.xp || 0) % 100)}%` }}></div>
           </div>
         </div>
+
+        {/* Evaluaciones Section */}
+        <div className="mb-8">
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-3xl font-black uppercase italic tracking-tight">Evaluaciones</h2>
+            <div className="h-px flex-1 bg-slate-800 mx-4"></div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+            {['manillas', 'contacto', 'combo'].map((type) => {
+              const status = userEvaluation?.[type] || 'bloqueado';
+              const feedback = userEvaluation?.[`feedback_${type}`];
+              
+              return (
+                <div key={type} className="bg-slate-800/50 border border-slate-700 p-6 rounded-3xl flex flex-col items-center gap-4 relative overflow-hidden group">
+                  <div className={`w-16 h-16 rounded-2xl flex items-center justify-center transition-all duration-500 ${
+                    status === 'aprobado' ? 'bg-emerald-500/20 text-emerald-500 shadow-[0_0_20px_rgba(16,185,129,0.2)]' :
+                    status === 'rechazado' ? 'bg-red-500/20 text-red-500 shadow-[0_0_20px_rgba(239,68,68,0.2)]' :
+                    status === 'pendiente' ? 'bg-yellow-500/20 text-yellow-500 animate-pulse' :
+                    'bg-slate-900 text-slate-700'
+                  }`}>
+                    {status === 'aprobado' ? <CheckCircle className="w-8 h-8" /> :
+                     status === 'rechazado' ? <X className="w-8 h-8" /> :
+                     status === 'pendiente' ? <Loader2 className="w-8 h-8 animate-spin" /> :
+                     <Lock className="w-8 h-8" />}
+                  </div>
+                  
+                  <div className="text-center">
+                    <span className="block text-sm font-black uppercase italic tracking-widest text-white mb-1">{type}</span>
+                    <span className={`text-[10px] font-black px-3 py-1 rounded-full uppercase italic tracking-tighter ${
+                      status === 'aprobado' ? 'bg-emerald-500 text-white' :
+                      status === 'rechazado' ? 'bg-red-500 text-white' :
+                      status === 'pendiente' ? 'bg-yellow-500 text-white' :
+                      'bg-slate-900 text-slate-500'
+                    }`}>
+                      {status === 'aprobado' ? 'Aprobado' :
+                       status === 'rechazado' ? 'Reintentar' :
+                       status === 'pendiente' ? 'En Revisión' :
+                       'Bloqueado'}
+                    </span>
+                  </div>
+
+                  {feedback && status === 'rechazado' && (
+                    <div className="mt-2 p-4 bg-red-500/10 border border-red-500/20 rounded-2xl w-full animate-in fade-in slide-in-from-bottom-2">
+                      <p className="text-[10px] font-black text-red-400 uppercase mb-1 italic tracking-widest">Feedback del Profe:</p>
+                      <p className="text-xs text-slate-300 italic font-medium leading-relaxed">"{feedback}"</p>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          {user?.role === 'admin' && (
+            <div className="mt-12 space-y-8">
+              <div className="flex items-center gap-4 mb-6">
+                <h3 className="text-2xl font-black uppercase italic text-primary tracking-tight">Control de Evaluaciones</h3>
+                <div className="h-px flex-1 bg-primary/20"></div>
+              </div>
+
+              <div className="grid grid-cols-1 gap-6">
+                {evaluations.length === 0 ? (
+                  <div className="text-center py-12 bg-slate-900/50 rounded-3xl border border-slate-800">
+                    <p className="text-slate-500 font-bold italic uppercase tracking-widest">No hay evaluaciones registradas</p>
+                  </div>
+                ) : (
+                  evaluations.map((ev) => (
+                    <div key={ev.id} className="bg-slate-800/50 rounded-3xl border border-slate-700 p-6 shadow-2xl">
+                      <div className="flex justify-between items-center mb-6">
+                        <div>
+                          <p className="text-[10px] font-black text-primary uppercase tracking-widest italic mb-1">Alumno</p>
+                          <h4 className="text-xl font-black text-white uppercase italic">{ev.user_name}</h4>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest italic mb-1">Última Actividad</p>
+                          <p className="text-xs font-bold text-slate-400">{ev.fecha ? new Date(ev.fecha.toDate()).toLocaleDateString() : 'Sin fecha'}</p>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        {['manillas', 'contacto', 'combo'].map((type) => (
+                          <div key={type} className="bg-slate-900/80 p-5 rounded-2xl border border-slate-800">
+                            <div className="flex justify-between items-center mb-4">
+                              <span className="text-xs font-black uppercase italic tracking-widest text-slate-400">{type}</span>
+                              <span className={`text-[10px] font-black px-2 py-0.5 rounded uppercase italic ${
+                                ev[type] === 'aprobado' ? 'bg-emerald-500/20 text-emerald-500' :
+                                ev[type] === 'rechazado' ? 'bg-red-500/20 text-red-500' :
+                                ev[type] === 'pendiente' ? 'bg-yellow-500/20 text-yellow-500' :
+                                'bg-slate-800 text-slate-600'
+                              }`}>
+                                {ev[type] || 'bloqueado'}
+                              </span>
+                            </div>
+
+                            <div className="space-y-3">
+                              <textarea
+                                placeholder="Escribe feedback aquí..."
+                                value={adminFeedback[`${ev.id}_${type}`] || ev[`feedback_${type}`] || ''}
+                                onChange={(e) => setAdminFeedback(prev => ({ ...prev, [`${ev.id}_${type}`]: e.target.value }))}
+                                className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-slate-300 italic resize-none h-20 focus:border-primary outline-none transition-all"
+                              />
+                              
+                              <div className="flex gap-2">
+                                <button
+                                  onClick={() => handleApproveEvaluation(ev.id, ev.user_id, type)}
+                                  disabled={isUpdating === `${ev.id}_${type}`}
+                                  className="flex-1 bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 text-white py-2 rounded-xl text-[10px] font-black uppercase italic transition-all"
+                                >
+                                  {isUpdating === `${ev.id}_${type}` ? '...' : 'Aprobar'}
+                                </button>
+                                <button
+                                  onClick={() => handleRejectEvaluation(ev.id, ev.user_id, type)}
+                                  disabled={isUpdating === `${ev.id}_${type}`}
+                                  className="flex-1 bg-red-500 hover:bg-red-600 disabled:opacity-50 text-white py-2 rounded-xl text-[10px] font-black uppercase italic transition-all"
+                                >
+                                  {isUpdating === `${ev.id}_${type}` ? '...' : 'Reintentar'}
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          )}
+        </div>
       </section>
 
       <section className="flex flex-col gap-4">
@@ -698,21 +949,13 @@ export function Saberes() {
                     </div>
                   </div>
 
-                  {user?.role === 'student' && !isCompleted && (
-                    <button 
-                      onClick={() => handleVideoUploadClick(combo.id)}
-                      className="w-full flex items-center justify-center gap-2 bg-slate-700 hover:bg-slate-600 text-white py-2 rounded-lg text-sm font-bold transition-colors"
-                    >
-                      <Video className="w-4 h-4" />
-                      Subir Video de Prueba (Máx 80s)
-                    </button>
-                  )}
+                  {/* Video upload button removed as per new system */}
 
                   {(user?.role === 'admin' || user?.role === 'teacher') && !isCompleted && (
                     <div className="flex gap-2">
                       {!combo.golpeo_approved && (
                         <button 
-                          onClick={() => handleApproveCombo(combo.id, 'golpeo')}
+                          onClick={() => handleApproveCombo(combo.id, 'golpeo', user.id)}
                           className="flex-1 flex items-center justify-center gap-1 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-500 py-2 rounded-lg text-xs font-bold transition-colors"
                         >
                           <CheckCircle className="w-3 h-3" /> Aprobar Golpeo
@@ -720,7 +963,7 @@ export function Saberes() {
                       )}
                       {!combo.saco_approved && (
                         <button 
-                          onClick={() => handleApproveCombo(combo.id, 'saco')}
+                          onClick={() => handleApproveCombo(combo.id, 'saco', user.id)}
                           className="flex-1 flex items-center justify-center gap-1 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-500 py-2 rounded-lg text-xs font-bold transition-colors"
                         >
                           <CheckCircle className="w-3 h-3" /> Aprobar Saco
@@ -728,7 +971,7 @@ export function Saberes() {
                       )}
                       {!combo.manillas_approved && (
                         <button 
-                          onClick={() => handleApproveCombo(combo.id, 'manillas')}
+                          onClick={() => handleApproveCombo(combo.id, 'manillas', user.id)}
                           className="flex-1 flex items-center justify-center gap-1 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-500 py-2 rounded-lg text-xs font-bold transition-colors"
                         >
                           <CheckCircle className="w-3 h-3" /> Aprobar Manillas

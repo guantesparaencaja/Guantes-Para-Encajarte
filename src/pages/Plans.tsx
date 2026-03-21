@@ -103,192 +103,238 @@ export function Plans() {
 
   const getIcon = (iconName: string) => {
     switch (iconName) {
-      case 'Glove': return <Flame className="w-6 h-6 text-red-500" />;
-      case 'Timer': return <Clock className="w-6 h-6 text-blue-500" />;
-      case 'Trophy': return <Trophy className="w-6 h-6 text-yellow-500" />;
-      case 'Zap': return <Zap className="w-6 h-6 text-purple-500" />;
-      default: return <Star className="w-6 h-6 text-primary" />;
+      case 'Glove': return <Flame className="w-8 h-8 text-orange-500" />;
+      case 'Timer': return <Clock className="w-8 h-8 text-blue-500" />;
+      case 'Trophy': return <Trophy className="w-8 h-8 text-yellow-500" />;
+      case 'Zap': return <Zap className="w-8 h-8 text-purple-500" />;
+      default: return <Star className="w-8 h-8 text-primary" />;
     }
   };
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-950 flex items-center justify-center">
-        <div className="w-12 h-12 border-4 border-primary/30 border-t-primary rounded-full animate-spin" />
+      <div className="min-h-screen bg-background-light dark:bg-background-dark flex items-center justify-center">
+        <div className="w-16 h-16 border-4 border-primary/20 border-t-primary rounded-full animate-spin shadow-2xl shadow-primary/20" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 text-white font-display pb-20">
+    <div className="min-h-screen bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100 font-display pb-24">
       {/* Header */}
-      <div className="relative h-64 overflow-hidden">
+      <div className="relative h-80 overflow-hidden">
         <img 
           src="https://images.unsplash.com/photo-1549719386-74dfcbf7dbed?auto=format&fit=crop&q=80" 
-          className="w-full h-full object-cover opacity-40"
+          className="w-full h-full object-cover"
           alt="Boxing background"
+          referrerPolicy="no-referrer"
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/60 to-transparent"></div>
-        <div className="absolute top-6 left-6 right-6 flex justify-between items-center">
-          <button onClick={() => navigate(-1)} className="p-3 bg-slate-900/80 rounded-2xl backdrop-blur-md border border-slate-700">
+        <div className="absolute inset-0 bg-gradient-to-t from-background-light dark:from-background-dark via-background-light/60 dark:via-background-dark/60 to-transparent"></div>
+        
+        <div className="absolute top-6 left-6 right-6 flex justify-between items-center z-20">
+          <button 
+            onClick={() => navigate(-1)} 
+            className="w-12 h-12 flex items-center justify-center rounded-2xl bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:text-primary transition-all shadow-lg active:scale-95"
+          >
             <ArrowLeft className="w-6 h-6" />
           </button>
           {user?.role === 'admin' && (
             <button 
               onClick={() => isEditing ? saveChanges() : setIsEditing(true)}
-              className={`p-3 rounded-2xl backdrop-blur-md border flex items-center gap-2 font-bold ${isEditing ? 'bg-emerald-500 border-emerald-400' : 'bg-slate-900/80 border-slate-700'}`}
+              className={`h-12 px-6 rounded-2xl backdrop-blur-md border flex items-center gap-3 font-black uppercase tracking-widest text-xs transition-all shadow-lg active:scale-95 ${
+                isEditing 
+                  ? 'bg-emerald-500 border-emerald-400 text-white' 
+                  : 'bg-white/80 dark:bg-slate-900/80 border-slate-200 dark:border-slate-800 text-primary'
+              }`}
             >
               {isEditing ? <Save className="w-5 h-5" /> : <Edit2 className="w-5 h-5" />}
               {isEditing ? 'Guardar' : 'Editar'}
             </button>
           )}
         </div>
-        <div className="absolute bottom-6 left-6">
-          <h1 className="text-4xl font-black uppercase tracking-tighter italic">Planes y Precios</h1>
-          <p className="text-slate-400 font-medium">Donde la derrota no tiene cavidad</p>
+
+        <div className="absolute bottom-10 left-8 right-8 z-10">
+          <h1 className="text-5xl font-black uppercase tracking-tighter italic leading-none text-slate-900 dark:text-white mb-2">
+            Planes y <br /> <span className="text-primary">Precios</span>
+          </h1>
+          <p className="text-slate-500 dark:text-slate-400 font-black uppercase tracking-[0.3em] text-[10px]">Donde la derrota no tiene cavidad</p>
         </div>
       </div>
 
-      <div className="px-6 -mt-4 relative z-10 space-y-6">
+      <div className="px-6 -mt-6 relative z-10 space-y-10">
         {/* Intro Card */}
-        <div className="bg-slate-900/80 border border-slate-800 rounded-3xl p-6 backdrop-blur-md">
-          <div className="flex items-center gap-4 mb-4">
-            <div className="p-3 bg-primary/20 rounded-2xl">
-              <ShieldCheck className="w-8 h-8 text-primary" />
+        <div className="glass-card rounded-[3rem] p-8 relative overflow-hidden group">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full -mr-16 -mt-16 transition-transform group-hover:scale-110"></div>
+          <div className="flex items-center gap-6 mb-6">
+            <div className="p-4 bg-primary/10 rounded-[1.5rem] border border-primary/20">
+              <ShieldCheck className="w-10 h-10 text-primary" />
             </div>
             <div>
-              <h2 className="text-xl font-bold uppercase italic">Clases Personalizadas</h2>
-              <p className="text-xs text-slate-400">El Artista • Decisao</p>
+              <h2 className="text-2xl font-black uppercase italic tracking-tight text-slate-900 dark:text-white">Clases Personalizadas</h2>
+              <p className="text-[10px] font-black text-primary uppercase tracking-[0.2em] mt-1">El Artista • Decisao</p>
             </div>
           </div>
-          <p className="text-sm text-slate-300 leading-relaxed">
+          <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed font-medium">
             Clases con mejor implementación y enfoque al boxeo en Decisao. Contamos con las herramientas para hacerte el mejor.
           </p>
-          <div className="mt-4 flex flex-wrap gap-2">
-            <span className="px-3 py-1 bg-slate-800 rounded-full text-[10px] font-bold uppercase tracking-wider text-slate-400">HIT</span>
-            <span className="px-3 py-1 bg-slate-800 rounded-full text-[10px] font-bold uppercase tracking-wider text-slate-400">Skills</span>
-            <span className="px-3 py-1 bg-slate-800 rounded-full text-[10px] font-bold uppercase tracking-wider text-slate-400">Strong</span>
-            <span className="px-3 py-1 bg-slate-800 rounded-full text-[10px] font-bold uppercase tracking-wider text-slate-400">Defensa Personal</span>
+          <div className="mt-8 flex flex-wrap gap-3">
+            {['HIT', 'Skills', 'Strong', 'Defensa Personal'].map((tag) => (
+              <span key={tag} className="px-4 py-1.5 bg-slate-100 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/50 rounded-xl text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">
+                {tag}
+              </span>
+            ))}
           </div>
         </div>
 
         {/* Plans List */}
-        <div className="space-y-4">
-          {plans.map((plan) => (
-            <div key={plan.id} className="bg-slate-900/50 border border-slate-800 rounded-3xl p-5 flex items-center gap-4 hover:bg-slate-900 transition-all">
-              <div className="p-4 bg-slate-800 rounded-2xl">
-                {getIcon(plan.icon)}
-              </div>
-              <div className="flex-1">
-                <h3 className="font-bold text-lg italic uppercase">{plan.name}</h3>
-                <div className="flex flex-col gap-1 mt-1">
-                  <div className="flex justify-between items-center">
-                    <span className="text-xs text-slate-500">Personalizadas:</span>
+        <section>
+          <h3 className="text-xs font-black text-slate-400 uppercase tracking-[0.4em] mb-8 ml-4">Membresías Disponibles</h3>
+          <div className="space-y-6">
+            {plans.map((plan) => (
+              <div key={plan.id} className="glass-card rounded-[2.5rem] p-6 flex flex-col gap-6 hover:scale-[1.02] transition-all duration-500 group">
+                <div className="flex items-center gap-6">
+                  <div className="w-20 h-20 bg-slate-100 dark:bg-slate-800/50 rounded-[2rem] flex items-center justify-center border border-slate-200 dark:border-slate-700/50 transition-transform group-hover:rotate-6">
+                    {getIcon(plan.icon)}
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="font-black text-xl italic uppercase tracking-tight text-slate-900 dark:text-white">{plan.name}</h3>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 font-medium mt-1">{plan.description}</p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="bg-white/40 dark:bg-slate-800/40 p-5 rounded-2xl border border-slate-200/50 dark:border-slate-700/50">
+                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2">Personalizadas</span>
                     {isEditing ? (
                       <input 
                         type="number" 
                         value={plan.price_personalizada}
                         onChange={(e) => handleUpdatePlan(plan.id, 'price_personalizada', parseInt(e.target.value))}
-                        className="bg-slate-800 border border-slate-700 rounded px-2 py-1 text-xs w-24 text-right"
+                        className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 text-sm w-full font-bold text-primary outline-none focus:ring-2 focus:ring-primary/50"
                       />
                     ) : (
-                      <span className="text-sm font-bold text-primary">${plan.price_personalizada.toLocaleString()}</span>
+                      <span className="text-xl font-black text-primary tracking-tight">${plan.price_personalizada.toLocaleString()}</span>
                     )}
                   </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-xs text-slate-500">Decisao:</span>
+                  <div className="bg-white/40 dark:bg-slate-800/40 p-5 rounded-2xl border border-slate-200/50 dark:border-slate-700/50">
+                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2">Decisao</span>
                     {isEditing ? (
                       <input 
                         type="number" 
                         value={plan.price_decisao}
                         onChange={(e) => handleUpdatePlan(plan.id, 'price_decisao', parseInt(e.target.value))}
-                        className="bg-slate-800 border border-slate-700 rounded px-2 py-1 text-xs w-24 text-right"
+                        className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 text-sm w-full font-bold text-purple-500 outline-none focus:ring-2 focus:ring-purple-500/50"
                       />
                     ) : (
-                      <span className="text-sm font-bold text-purple-400">${plan.price_decisao.toLocaleString()}</span>
+                      <span className="text-xl font-black text-purple-500 tracking-tight">${plan.price_decisao.toLocaleString()}</span>
                     )}
                   </div>
                 </div>
+
                 {!isEditing && (
                   <button
-                    onClick={() => navigate('/calendar')}
-                    className="w-full mt-3 py-2 bg-primary/20 hover:bg-primary/30 text-primary rounded-xl text-xs font-bold uppercase tracking-wider transition-colors"
+                    onClick={() => navigate('/payments', { state: { planId: plan.id, planName: plan.name } })}
+                    className="w-full py-5 bg-primary text-white rounded-[1.5rem] text-xs font-black uppercase tracking-[0.2em] transition-all shadow-xl shadow-primary/20 hover:scale-[1.02] active:scale-[0.98]"
                   >
-                    Elegir Plan y Reservar
-                  </button>
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {/* Payment Methods */}
-        <div className="bg-gradient-to-br from-primary/20 to-purple-900/20 border border-primary/30 rounded-3xl p-6">
-          <h3 className="text-xl font-black uppercase italic mb-4 flex items-center gap-2">
-            <CreditCard className="w-6 h-6" /> Métodos de Pago
-          </h3>
-          <div className="grid grid-cols-1 gap-4">
-            {paymentMethods.map((method) => (
-              <div key={method.id} className="bg-slate-950/50 p-4 rounded-2xl border border-white/10 flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <Smartphone className="w-5 h-5 text-slate-400" />
-                  <div>
-                    <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{method.name}</p>
-                    {isEditing ? (
-                      <input 
-                        type="text" 
-                        value={method.number}
-                        onChange={(e) => handleUpdateMethod(method.id, e.target.value)}
-                        className="bg-slate-800 border border-slate-700 rounded px-2 py-1 text-sm w-32"
-                      />
-                    ) : (
-                      <p className="font-bold text-lg tracking-wider">{method.number}</p>
-                    )}
-                  </div>
-                </div>
-                {!isEditing && (
-                  <button 
-                    onClick={() => {
-                      navigator.clipboard.writeText(method.number);
-                      alert('Número copiado');
-                    }}
-                    className="p-2 bg-white/5 rounded-xl hover:bg-white/10"
-                  >
-                    <Check className="w-4 h-4 text-emerald-400" />
+                    Elegir Plan y Pagar
                   </button>
                 )}
               </div>
             ))}
           </div>
-          <div className="mt-6 text-center">
-            <a 
-              href="https://wa.me/573022028477" 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 bg-emerald-500 text-white font-black uppercase italic px-8 py-4 rounded-2xl shadow-xl shadow-emerald-500/20 hover:scale-105 transition-transform"
-            >
-              Reserva tu clase hoy
-            </a>
-            <p className="text-[10px] text-slate-500 mt-4 uppercase tracking-widest">¡Cupos limitados! 🥊🔥</p>
+        </section>
+
+        {/* Payment Methods */}
+        <section>
+          <div className="glass-card rounded-[3rem] p-8 relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-40 h-40 bg-emerald-500/5 rounded-full -mr-20 -mt-20"></div>
+            <h3 className="text-2xl font-black uppercase italic tracking-tight mb-8 flex items-center gap-4 text-slate-900 dark:text-white">
+              <div className="p-3 bg-emerald-500/10 rounded-2xl border border-emerald-500/20">
+                <CreditCard className="w-6 h-6 text-emerald-500" />
+              </div>
+              Métodos de Pago
+            </h3>
+            
+            <div className="space-y-4">
+              {paymentMethods.map((method) => (
+                <div key={method.id} className="bg-white/40 dark:bg-slate-800/40 p-6 rounded-[2rem] border border-slate-200/50 dark:border-slate-700/50 flex items-center justify-between group">
+                  <div className="flex items-center gap-5">
+                    <div className="w-12 h-12 bg-slate-100 dark:bg-slate-900 rounded-2xl flex items-center justify-center border border-slate-200 dark:border-slate-800">
+                      <Smartphone className="w-6 h-6 text-slate-400" />
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">{method.name}</p>
+                      {isEditing ? (
+                        <input 
+                          type="text" 
+                          value={method.number}
+                          onChange={(e) => handleUpdateMethod(method.id, e.target.value)}
+                          className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-2 text-sm font-bold w-40 outline-none focus:ring-2 focus:ring-primary/50"
+                        />
+                      ) : (
+                        <p className="font-black text-xl tracking-widest text-slate-900 dark:text-white">{method.number}</p>
+                      )}
+                    </div>
+                  </div>
+                  {!isEditing && (
+                    <button 
+                      onClick={() => {
+                        navigator.clipboard.writeText(method.number);
+                        alert('Número copiado');
+                      }}
+                      className="w-12 h-12 flex items-center justify-center bg-emerald-500/10 text-emerald-500 rounded-2xl hover:bg-emerald-500 hover:text-white transition-all border border-emerald-500/20 active:scale-90"
+                    >
+                      <Check className="w-5 h-5" />
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-10 text-center">
+              <a 
+                href="https://wa.me/573022028477" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="w-full inline-flex items-center justify-center gap-4 bg-emerald-500 text-white font-black uppercase italic px-8 py-6 rounded-[2rem] shadow-2xl shadow-emerald-500/30 hover:scale-[1.02] active:scale-[0.98] transition-all tracking-widest"
+              >
+                Reserva tu clase hoy
+              </a>
+              <div className="flex items-center justify-center gap-2 mt-6">
+                <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>
+                <p className="text-[10px] text-slate-500 dark:text-slate-400 font-black uppercase tracking-[0.3em]">¡Cupos limitados! 🥊🔥</p>
+              </div>
+            </div>
           </div>
-        </div>
+        </section>
 
         {/* Footer Info */}
-        <div className="text-center space-y-2 pb-10">
-          <p className="text-[10px] text-slate-500 uppercase tracking-widest">Clases con entrenadores certificados</p>
-          <p className="text-[10px] text-slate-500 uppercase tracking-widest">Planes para todos los niveles</p>
-          <p className="text-[10px] text-slate-500 uppercase tracking-widest">Entrenamientos a domicilio y competencias internas</p>
+        <div className="space-y-12 pb-12">
+          <div className="grid grid-cols-1 gap-4">
+            {[
+              'Clases con entrenadores certificados',
+              'Planes para todos los niveles',
+              'Entrenamientos a domicilio y competencias internas'
+            ].map((text) => (
+              <div key={text} className="flex items-center gap-4 px-6 py-4 bg-slate-100/50 dark:bg-slate-800/30 rounded-2xl border border-slate-200/50 dark:border-slate-700/50">
+                <div className="w-2 h-2 bg-primary rounded-full"></div>
+                <p className="text-[10px] text-slate-500 dark:text-slate-400 font-black uppercase tracking-widest">{text}</p>
+              </div>
+            ))}
+          </div>
           
-          <div className="mt-8 pt-8 border-t border-slate-800">
-            <h4 className="font-bold text-lg mb-2">¿Tienes dudas o inquietudes?</h4>
+          <div className="pt-12 border-t border-slate-200 dark:border-slate-800 text-center">
+            <h4 className="font-black text-2xl uppercase italic tracking-tight text-slate-900 dark:text-white mb-6">¿Tienes dudas o inquietudes?</h4>
             <a 
               href="https://wa.me/573022028477" 
               target="_blank" 
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 bg-slate-800 text-white font-bold px-6 py-3 rounded-xl hover:bg-slate-700 transition-colors"
+              className="inline-flex items-center gap-4 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md text-slate-900 dark:text-white font-black px-10 py-5 rounded-[2rem] hover:bg-primary hover:text-white transition-all border border-slate-200 dark:border-slate-800 shadow-xl group"
             >
-              <MessageCircle className="w-5 h-5 text-emerald-400" />
-              Contáctanos por WhatsApp
+              <div className="p-2 bg-emerald-500/10 rounded-xl group-hover:bg-white/20 transition-colors">
+                <MessageCircle className="w-6 h-6 text-emerald-500 group-hover:text-white" />
+              </div>
+              <span className="uppercase tracking-widest text-sm">Contáctanos por WhatsApp</span>
             </a>
           </div>
         </div>

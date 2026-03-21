@@ -13,6 +13,9 @@
         "xp": { "type": "number" },
         "lives": { "type": "number" },
         "streak": { "type": "number" },
+        "progreso_total": { "type": "number" },
+        "vendaje_progreso": { "type": "number" },
+        "fecha_registro": { "type": "string", "format": "date-time" },
         "water_intake": {
           "type": "object",
           "properties": {
@@ -21,9 +24,76 @@
           }
         },
         "assessment_completed": { "type": "boolean" },
-        "assessment_updated_at": { "type": "string" }
+        "assessment_updated_at": { "type": "string" },
+        "fcm_token": { "type": "string" }
       },
       "required": ["name", "email", "role"]
+    },
+    "Payment": {
+      "title": "Payment",
+      "description": "A payment record.",
+      "type": "object",
+      "properties": {
+        "user_id": { "type": "string" },
+        "metodo": { "type": "string", "enum": ["nequi", "bre-b"] },
+        "comprobante_url": { "type": "string" },
+        "estado": { "type": "string", "enum": ["pendiente", "aprobado", "rechazado"] },
+        "fecha": { "type": "string", "format": "date-time" }
+      },
+      "required": ["user_id", "metodo", "comprobante_url", "estado", "fecha"]
+    },
+    "Class": {
+      "title": "Class",
+      "description": "A scheduled class.",
+      "type": "object",
+      "properties": {
+        "fecha": { "type": "string" },
+        "hora": { "type": "string" },
+        "cupos": { "type": "number" },
+        "usuarios_inscritos": { "type": "array", "items": { "type": "string" } }
+      },
+      "required": ["fecha", "hora", "cupos"]
+    },
+    "Video": {
+      "title": "Video",
+      "description": "A tutorial or skill video.",
+      "type": "object",
+      "properties": {
+        "tipo": { "type": "string", "enum": ["vendaje", "combo", "tecnica"] },
+        "nivel": { "type": "string", "enum": ["basico", "intermedio", "avanzado"] },
+        "url": { "type": "string" },
+        "activo": { "type": "boolean" }
+      },
+      "required": ["tipo", "nivel", "url", "activo"]
+    },
+    "VideoProgress": {
+      "title": "VideoProgress",
+      "description": "User progress on a specific video.",
+      "type": "object",
+      "properties": {
+        "user_id": { "type": "string" },
+        "video_id": { "type": "string" },
+        "progreso": { "type": "number" },
+        "completado": { "type": "boolean" }
+      },
+      "required": ["user_id", "video_id", "progreso", "completado"]
+    },
+    "Evaluation": {
+      "title": "Evaluation",
+      "description": "User technical evaluations (Manillas, Contacto, Combo)",
+      "type": "object",
+      "properties": {
+        "user_id": { "type": "string" },
+        "user_name": { "type": "string" },
+        "manillas": { "type": "string", "enum": ["pendiente", "aprobado", "rechazado", "bloqueado"] },
+        "contacto": { "type": "string", "enum": ["pendiente", "aprobado", "rechazado", "bloqueado"] },
+        "combo": { "type": "string", "enum": ["pendiente", "aprobado", "rechazado", "bloqueado"] },
+        "feedback_manillas": { "type": "string" },
+        "feedback_contacto": { "type": "string" },
+        "feedback_combo": { "type": "string" },
+        "fecha": { "type": "string", "format": "date-time" }
+      },
+      "required": ["user_id"]
     },
     "Meal": {
       "title": "Meal",
@@ -114,6 +184,20 @@
         "createdAt": { "type": "string" }
       },
       "required": ["user_id", "name", "exercises", "createdAt"]
+    },
+    "Notification": {
+      "title": "Notification",
+      "description": "An in-app notification for the user.",
+      "type": "object",
+      "properties": {
+        "user_id": { "type": "string" },
+        "title": { "type": "string" },
+        "message": { "type": "string" },
+        "type": { "type": "string", "enum": ["info", "success", "warning", "error"] },
+        "read": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["user_id", "title", "message", "type", "read", "createdAt"]
     }
   },
   "firestore": {
@@ -148,6 +232,30 @@
     "custom_routines": {
       "schema": "CustomRoutine",
       "description": "User custom routines."
+    },
+    "payments": {
+      "schema": "Payment",
+      "description": "Payment records."
+    },
+    "classes": {
+      "schema": "Class",
+      "description": "Scheduled classes."
+    },
+    "videos": {
+      "schema": "Video",
+      "description": "Tutorial and skill videos."
+    },
+    "video_progress": {
+      "schema": "VideoProgress",
+      "description": "User video progress."
+    },
+    "evaluations": {
+      "schema": "Evaluation",
+      "description": "Skill evaluations."
+    },
+    "notifications": {
+      "schema": "Notification",
+      "description": "User notifications."
     }
   }
 }

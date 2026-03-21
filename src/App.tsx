@@ -23,6 +23,7 @@ import { auth, db } from './lib/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { initializePushNotifications } from './lib/pushNotifications';
 
 export default function App() {
   const theme = useStore((state) => state.theme);
@@ -44,6 +45,7 @@ export default function App() {
             await updateDoc(userRef, { role: 'admin' });
           }
           setUser({ id: firebaseUser.uid, ...data } as any);
+          initializePushNotifications(firebaseUser.uid);
         } else {
           // If user exists in Auth but not in Firestore, we might need to redirect to register
           // or create a minimal profile. For now, we'll just set the basic info.

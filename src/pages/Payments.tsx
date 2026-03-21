@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useStore } from '../store/useStore';
-import { ArrowLeft, Upload, CheckCircle, AlertCircle, CreditCard, Image as ImageIcon, Loader2 } from 'lucide-react';
+import { ArrowLeft, Upload, CheckCircle, AlertCircle, CreditCard, Image as ImageIcon, Loader2, QrCode, Copy } from 'lucide-react';
 import { db, storage } from '../lib/firebase';
 import { doc, getDoc, updateDoc, collection, addDoc, query, where, onSnapshot } from 'firebase/firestore';
 import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
@@ -11,6 +11,8 @@ export function Payments() {
   const navigate = useNavigate();
   const user = useStore((state) => state.user);
   const [bookingId, setBookingId] = useState<string | null>(location.state?.bookingId || null);
+  const [planId, setPlanId] = useState<string | null>(location.state?.planId || null);
+  const [planName, setPlanName] = useState<string | null>(location.state?.planName || null);
   const [booking, setBooking] = useState<any>(null);
   const [pendingBookings, setPendingBookings] = useState<any[]>([]);
   const [file, setFile] = useState<File | null>(null);
@@ -49,18 +51,38 @@ export function Payments() {
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
-      setFile(e.target.files[0]);
+      const selectedFile = e.target.files[0];
+      
+      // Validation
+      const validTypes = ['image/jpeg', 'image/png', 'image/jpg'];
+      if (!validTypes.includes(selectedFile.type)) {
+        setError('Solo se permiten imágenes JPG o PNG.');
+        return;
+      }
+
+      if (selectedFile.size > 5 * 1024 * 1024) {
+        setError('El archivo es demasiado grande (máximo 5MB).');
+        return;
+      }
+
+      setFile(selectedFile);
+      setError(null);
     }
   };
 
+  const copyToClipboard = () => {
+    navigator.clipboard.writeText('3022028477');
+    // We could add a temporary state for "Copied!" feedback
+  };
+
   const handleUpload = async () => {
-    if (!file || !bookingId || !user) return;
+    if (!file || (!bookingId && !planId) || !user) return;
 
     setUploading(true);
     setError(null);
 
     try {
-      const storageRef = ref(storage, `payments/${bookingId}_${Date.now()}`);
+      const storageRef = ref(storage, `pagos/${user.id}/comprobante_${Date.now()}.jpg`);
       const uploadTask = uploadBytesResumable(storageRef, file);
 
       uploadTask.on(
@@ -77,19 +99,33 @@ export function Payments() {
         async () => {
           const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
           
-          // Update booking with payment info
-          await updateDoc(doc(db, 'bookings', bookingId), {
-            payment_proof_url: downloadURL,
-            payment_status: 'submitted',
-            payment_submitted_at: new Date().toISOString()
-          });
+          if (planId) {
+            // Create a plan payment request
+            await addDoc(collection(db, 'plan_payments'), {
+              user_id: user.id,
+              user_name: user.name,
+              plan_id: planId,
+              plan_name: planName,
+              payment_proof_url: downloadURL,
+              status: 'submitted',
+              submitted_at: new Date().toISOString()
+            });
+          } else if (bookingId) {
+            // Update booking with payment info
+            await updateDoc(doc(db, 'bookings', bookingId), {
+              payment_proof_url: downloadURL,
+              payment_status: 'submitted',
+              payment_submitted_at: new Date().toISOString()
+            });
+          }
 
-          // Create a notification for admin (optional, but good practice)
+          // Create a notification for admin
           await addDoc(collection(db, 'notifications'), {
-            user_id: 'admin', // Or specific admin ID
+            user_id: 'admin',
             type: 'payment_submitted',
-            message: `Nuevo comprobante de pago de ${user.name} para la clase del ${booking.date}`,
-            booking_id: bookingId,
+            message: `Nuevo comprobante de pago de ${user.name} para ${planId ? 'el plan ' + planName : 'la clase del ' + booking?.date}`,
+            booking_id: bookingId || null,
+            plan_id: planId || null,
             created_at: new Date().toISOString(),
             read: false
           });
@@ -98,7 +134,7 @@ export function Payments() {
           setUploading(false);
           
           setTimeout(() => {
-            navigate('/calendar');
+            navigate(planId ? '/profile' : '/calendar');
           }, 3000);
         }
       );
@@ -129,10 +165,10 @@ export function Payments() {
             </div>
             <h2 className="text-2xl font-black text-emerald-500 uppercase">¡Enviado con éxito!</h2>
             <p className="text-slate-400 font-medium">
-              Tu comprobante ha sido recibido. El profesor confirmará tu clase en breve. 
-              Si no hay respuesta en 3 horas, se confirmará automáticamente.
+              Tu comprobante ha sido recibido. El profesor confirmará tu {planId ? 'plan' : 'clase'} en breve. 
+              {bookingId && "Si no hay respuesta en 3 horas, se confirmará automáticamente."}
             </p>
-            <p className="text-xs text-slate-500 mt-4">Redirigiendo al calendario...</p>
+            <p className="text-xs text-slate-500 mt-4">Redirigiendo al {planId ? 'perfil' : 'calendario'}...</p>
           </div>
         ) : !bookingId && pendingBookings.length > 0 ? (
           <div className="bg-slate-800/50 rounded-3xl border border-slate-700 p-6 shadow-2xl">
@@ -168,72 +204,64 @@ export function Payments() {
                 <CreditCard className="w-6 h-6" />
               </div>
               <div>
-                <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest italic">Reserva Seleccionada</p>
+                <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest italic">
+                  {planId ? 'Plan Seleccionado' : 'Reserva Seleccionada'}
+                </p>
                 <p className="text-sm font-black text-white uppercase italic">
-                  {booking ? `${booking.date} • ${booking.time}` : 'Cargando...'}
+                  {planId ? planName : (booking ? `${booking.date} • ${booking.time}` : 'Cargando...')}
                 </p>
               </div>
             </div>
 
             <div className="space-y-6">
-              <div>
-                <label className="block text-[10px] font-black text-slate-500 mb-3 uppercase tracking-widest italic">
-                  Enlaces Directos a Bancos
-                </label>
-                <div className="grid grid-cols-2 gap-3 mb-6">
-                  <a 
-                    href="https://recarga.nequi.com.co/bdigitalpsl/" 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="bg-[#1a1a2e] border border-[#2a2a4a] hover:border-[#4a4a8a] transition-colors rounded-xl p-3 flex flex-col items-center justify-center gap-2"
-                  >
-                    <div className="w-10 h-10 bg-[#E80054] rounded-full flex items-center justify-center text-white font-black italic text-xl">N</div>
-                    <span className="text-xs font-bold text-slate-300">Nequi</span>
-                  </a>
-                  <a 
-                    href="https://www.bancolombia.com/personas" 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="bg-[#1a1a2e] border border-[#2a2a4a] hover:border-[#4a4a8a] transition-colors rounded-xl p-3 flex flex-col items-center justify-center gap-2"
-                  >
-                    <div className="w-10 h-10 bg-[#FDDA24] rounded-full flex items-center justify-center text-black font-black italic text-xl">B</div>
-                    <span className="text-xs font-bold text-slate-300">Bancolombia</span>
-                  </a>
-                  <a 
-                    href="https://www.daviplata.com/" 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="bg-[#1a1a2e] border border-[#2a2a4a] hover:border-[#4a4a8a] transition-colors rounded-xl p-3 flex flex-col items-center justify-center gap-2"
-                  >
-                    <div className="w-10 h-10 bg-[#ED1C24] rounded-full flex items-center justify-center text-white font-black italic text-xl">D</div>
-                    <span className="text-xs font-bold text-slate-300">Daviplata</span>
-                  </a>
-                  <a 
-                    href="https://www.pse.com.co/" 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="bg-[#1a1a2e] border border-[#2a2a4a] hover:border-[#4a4a8a] transition-colors rounded-xl p-3 flex flex-col items-center justify-center gap-2"
-                  >
-                    <div className="w-10 h-10 bg-[#00A4E4] rounded-full flex items-center justify-center text-white font-black italic text-xl">P</div>
-                    <span className="text-xs font-bold text-slate-300">PSE</span>
-                  </a>
+              <div className="bg-white p-6 rounded-3xl flex flex-col items-center gap-4 mb-2 shadow-xl border border-slate-200">
+                <div className="w-56 h-56 bg-slate-50 rounded-2xl flex items-center justify-center border-2 border-dashed border-slate-200 relative overflow-hidden group">
+                  <QrCode className="w-32 h-32 text-slate-200 group-hover:text-primary/20 transition-colors" />
+                  <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/60 backdrop-blur-[1px]">
+                    <div className="w-12 h-12 bg-[#E80054] rounded-full flex items-center justify-center text-white font-black italic text-xl mb-2 shadow-lg">N</div>
+                    <p className="text-[10px] font-black text-slate-800 uppercase text-center px-6 italic leading-tight">
+                      Escanea este QR desde tu App Nequi
+                    </p>
+                  </div>
                 </div>
+                
+                <div className="w-full space-y-3">
+                  <div className="text-center">
+                    <p className="text-[10px] font-black text-slate-400 uppercase italic tracking-widest mb-1">Beneficiario</p>
+                    <p className="text-xl font-black text-slate-900 uppercase italic tracking-tight">Kevin Hernandez</p>
+                  </div>
+                  
+                  <div className="flex items-center justify-between bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                    <div>
+                      <p className="text-[10px] font-black text-slate-400 uppercase italic tracking-widest mb-0.5">Número Nequi</p>
+                      <p className="text-lg font-black text-slate-900 tracking-wider">302 202 8477</p>
+                    </div>
+                    <button 
+                      onClick={copyToClipboard}
+                      className="w-12 h-12 bg-primary/10 text-primary rounded-xl flex items-center justify-center hover:bg-primary hover:text-white transition-all active:scale-90"
+                    >
+                      <Copy className="w-5 h-5" />
+                    </button>
+                  </div>
+                </div>
+              </div>
 
+              <div>
                 <label className="block text-[10px] font-black text-slate-500 mb-3 uppercase tracking-widest italic">
                   Instrucciones de Pago
                 </label>
                 <div className="bg-slate-900/80 p-5 rounded-2xl border border-slate-800 text-sm space-y-3">
                   <p className="flex items-center gap-3 text-slate-300 font-bold">
                     <span className="w-6 h-6 bg-primary/20 text-primary rounded-lg flex items-center justify-center text-[10px] font-black italic">1</span>
-                    Transferencia Nequi: <strong className="text-white">302 202 8477</strong>
+                    Escanea el QR o copia el número Nequi.
                   </p>
                   <p className="flex items-center gap-3 text-slate-300 font-bold">
                     <span className="w-6 h-6 bg-primary/20 text-primary rounded-lg flex items-center justify-center text-[10px] font-black italic">2</span>
-                    Captura de pantalla del comprobante.
+                    Realiza la transferencia por el valor del plan/clase.
                   </p>
                   <p className="flex items-center gap-3 text-slate-300 font-bold">
                     <span className="w-6 h-6 bg-primary/20 text-primary rounded-lg flex items-center justify-center text-[10px] font-black italic">3</span>
-                    Sube la imagen para validar.
+                    Sube el comprobante aquí abajo para validar.
                   </p>
                 </div>
               </div>
