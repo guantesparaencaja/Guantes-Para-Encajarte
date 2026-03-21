@@ -14,6 +14,7 @@ import { Login } from './pages/Login';
 import { Register } from './pages/Register';
 import { Saberes } from './pages/Saberes';
 import { Workouts } from './pages/Workouts';
+import { Calentamiento } from './pages/Calentamiento';
 import { Calendar } from './pages/Calendar';
 import { Profile } from './pages/Profile';
 import { Community } from './pages/Community';
@@ -83,14 +84,18 @@ export default function App() {
         unsubUser = onSnapshot(userRef, async (userDoc) => {
           if (userDoc.exists()) {
             const data = userDoc.data();
-            const adminEmails = ['hernandezkevin001998@gmail.com', 'guantesparaencajar@gmail.com'];
-            if (firebaseUser.email && adminEmails.includes(firebaseUser.email) && data.role !== 'admin') {
-              await updateDoc(userRef, { role: 'admin' });
+            const adminEmails = ['hernandezkevin001998@gmail.com'];
+            if (firebaseUser.email && adminEmails.includes(firebaseUser.email)) {
+              if (data.role !== 'admin') {
+                await updateDoc(userRef, { role: 'admin' });
+              }
+            } else if (data.role === 'admin') {
+              await updateDoc(userRef, { role: 'student' });
             }
             setUser({ id: firebaseUser.uid, ...data } as any);
             initializePushNotifications(firebaseUser.uid);
           } else {
-            const adminEmails = ['hernandezkevin001998@gmail.com', 'guantesparaencajar@gmail.com'];
+            const adminEmails = ['hernandezkevin001998@gmail.com'];
             const userData = {
               name: firebaseUser.displayName || 'Usuario',
               email: firebaseUser.email,
@@ -178,6 +183,7 @@ export default function App() {
               <Route path="/" element={<ProtectedRoute><Home /></ProtectedRoute>} />
               <Route path="/saberes" element={<ProtectedRoute><Saberes /></ProtectedRoute>} />
               <Route path="/workouts" element={<ProtectedRoute><Workouts /></ProtectedRoute>} />
+              <Route path="/calentamiento" element={<ProtectedRoute><Calentamiento /></ProtectedRoute>} />
               <Route path="/calendar" element={<ProtectedRoute><Calendar /></ProtectedRoute>} />
               <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
               <Route path="/community" element={<ProtectedRoute><Community /></ProtectedRoute>} />

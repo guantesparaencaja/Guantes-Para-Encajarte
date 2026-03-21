@@ -173,7 +173,7 @@ export function Saberes() {
         confirmText: 'Ir a Calentamiento',
         onConfirm: () => {
           setConfirmDialog(prev => ({ ...prev, isOpen: false }));
-          navigate('/workouts'); // Redirect to workouts where warmups are
+          navigate('/calentamiento');
         }
       });
     } else {

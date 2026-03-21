@@ -2,10 +2,12 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useStore } from '../store/useStore';
 import { Dumbbell, Play, Clock, ArrowLeft, Upload, Home, Building2, X, Plus, Trash2, Video, Search, CheckSquare, Square, Calendar, MapPin, RefreshCw, ChevronRight, ChevronDown, Info, Settings, AlertCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { motion } from 'motion/react';
 import { db, storage } from '../lib/firebase';
 import { collection, onSnapshot, addDoc, deleteDoc, doc, updateDoc, query, where, getDocs } from 'firebase/firestore';
 import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import { getYouTubeEmbedUrl } from '../services/geminiService';
+import { Modal } from '../components/Modal';
 
 interface Category {
   id: string;
@@ -20,8 +22,12 @@ interface WorkoutVideo {
   instructions?: string;
   common_errors?: string;
   video_url?: string;
+  cover_url?: string;
   difficulty?: string;
   equipment?: string;
+  duration?: number;
+  createdAt?: any;
+  createdBy?: string;
 }
 
 interface CustomRoutine {
@@ -49,6 +55,22 @@ export function Workouts() {
   const [userRoutines, setUserRoutines] = useState<CustomRoutine[]>([]);
   const [newRoutineName, setNewRoutineName] = useState('');
 
+  const [showUploadModal, setShowUploadModal] = useState(false);
+  const [uploadForm, setUploadForm] = useState({
+    title: '',
+    description: '',
+    level: 'principiante',
+    categoryId: '',
+    duration: 0,
+    instructions: '',
+    common_errors: '',
+    equipment: 'Sin equipo'
+  });
+  const [coverFile, setCoverFile] = useState<File | null>(null);
+  const [videoFile, setVideoFile] = useState<File | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const [overallProgress, setOverallProgress] = useState(0);
+
   const user = useStore((state) => state.user);
   const hasWarmedUp = useStore((state) => state.hasWarmedUp);
   const setHasWarmedUp = useStore((state) => state.setHasWarmedUp);
@@ -58,6 +80,87 @@ export function Workouts() {
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [fullScreenVideoUrl, setFullScreenVideoUrl] = useState<string | null>(null);
+
+  const handleFileUpload = (file: File, path: string): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const storageRef = ref(storage, `${path}/${Date.now()}_${file.name}`);
+      const uploadTask = uploadBytesResumable(storageRef, file);
+
+      uploadTask.on(
+        'state_changed',
+        (snapshot) => {
+          const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+          // We'll handle overall progress separately if needed, or just show this one
+          setOverallProgress(progress);
+        },
+        (error) => reject(error),
+        async () => {
+          const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+          resolve(downloadURL);
+        }
+      );
+    });
+  };
+
+  const handleSubmitVideo = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!uploadForm.title || !uploadForm.categoryId || !videoFile || !coverFile) {
+      alert('Por favor completa todos los campos requeridos y selecciona los archivos.');
+      return;
+    }
+
+    setIsUploading(true);
+    setOverallProgress(0);
+
+    try {
+      // 1. Upload Cover Image
+      const coverUrl = await handleFileUpload(coverFile, 'entrenos/portadas');
+      
+      // 2. Upload Video
+      setOverallProgress(0); // Reset for video
+      const videoUrl = await handleFileUpload(videoFile, 'entrenos/videos');
+
+      // 3. Save to Firestore
+      const videoData: Omit<WorkoutVideo, 'id'> = {
+        title: uploadForm.title,
+        description: uploadForm.description,
+        category_id: uploadForm.categoryId,
+        difficulty: uploadForm.level,
+        duration: Number(uploadForm.duration),
+        instructions: uploadForm.instructions,
+        common_errors: uploadForm.common_errors,
+        equipment: uploadForm.equipment,
+        video_url: videoUrl,
+        cover_url: coverUrl,
+        createdAt: new Date().toISOString(),
+        createdBy: user?.id
+      };
+
+      await addDoc(collection(db, 'workout_videos'), videoData);
+
+      // Reset and close
+      setShowUploadModal(false);
+      setUploadForm({
+        title: '',
+        description: '',
+        level: 'principiante',
+        categoryId: '',
+        duration: 0,
+        instructions: '',
+        common_errors: '',
+        equipment: 'Sin equipo'
+      });
+      setCoverFile(null);
+      setVideoFile(null);
+      alert('Video subido exitosamente');
+    } catch (error) {
+      console.error("Error uploading workout:", error);
+      alert('Error al subir el entrenamiento. Por favor intenta de nuevo.');
+    } finally {
+      setIsUploading(false);
+      setOverallProgress(0);
+    }
+  };
 
   const handleVideoClick = (video: WorkoutVideo) => {
     const category = categories.find(c => c.id === video.category_id);
@@ -74,11 +177,7 @@ export function Workouts() {
         confirmText: 'Ir a Calentamiento',
         onConfirm: () => {
           setConfirmDialog(prev => ({ ...prev, isOpen: false }));
-          // Find a warmup category
-          const warmupCategory = categories.find(c => c.name.toLowerCase().includes('calentamiento') || c.name.toLowerCase().includes('movilidad'));
-          if (warmupCategory) {
-            setSelectedCategory(warmupCategory.id);
-          }
+          navigate('/calentamiento');
         }
       });
     } else {
@@ -525,6 +624,198 @@ export function Workouts() {
 
   return (
     <div className="min-h-screen bg-background-light dark:bg-background-dark text-slate-900 dark:text-white pb-32 font-sans">
+      {/* Admin Floating Action Button */}
+      {user?.role === 'admin' && (
+        <button
+          onClick={() => setShowUploadModal(true)}
+          className="fixed bottom-24 right-6 z-40 bg-primary text-white p-4 rounded-full shadow-2xl hover:scale-110 active:scale-95 transition-all group"
+        >
+          <Plus className="w-8 h-8 group-hover:rotate-90 transition-transform duration-300" />
+        </button>
+      )}
+
+      {/* Upload Modal */}
+      <Modal
+        isOpen={showUploadModal}
+        onClose={() => !isUploading && setShowUploadModal(false)}
+        title="Subir Nuevo Video"
+      >
+        <form onSubmit={handleSubmitVideo} className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-2">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-1">Título</label>
+              <input
+                type="text"
+                required
+                value={uploadForm.title}
+                onChange={e => setUploadForm({...uploadForm, title: e.target.value})}
+                placeholder="Ej: Jab-Cross-Hook Combo"
+                className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl px-5 py-4 text-slate-900 dark:text-white focus:border-primary outline-none transition-all"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-1">Categoría</label>
+              <select
+                required
+                value={uploadForm.categoryId}
+                onChange={e => setUploadForm({...uploadForm, categoryId: e.target.value})}
+                className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl px-5 py-4 text-slate-900 dark:text-white focus:border-primary outline-none appearance-none cursor-pointer"
+              >
+                <option value="">Seleccionar categoría</option>
+                {categories.map(cat => (
+                  <option key={cat.id} value={cat.id}>{cat.name}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-1">Descripción</label>
+            <textarea
+              required
+              value={uploadForm.description}
+              onChange={e => setUploadForm({...uploadForm, description: e.target.value})}
+              placeholder="Describe brevemente el entrenamiento..."
+              className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl px-5 py-4 text-slate-900 dark:text-white focus:border-primary outline-none resize-none h-24 transition-all"
+            />
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-2">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-1">Nivel</label>
+              <select
+                value={uploadForm.level}
+                onChange={e => setUploadForm({...uploadForm, level: e.target.value})}
+                className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl px-5 py-4 text-slate-900 dark:text-white focus:border-primary outline-none appearance-none cursor-pointer"
+              >
+                <option value="principiante">Principiante</option>
+                <option value="intermedio">Intermedio</option>
+                <option value="avanzado">Avanzado</option>
+              </select>
+            </div>
+            <div className="space-y-2">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-1">Duración (minutos)</label>
+              <input
+                type="number"
+                required
+                min="1"
+                value={uploadForm.duration}
+                onChange={e => setUploadForm({...uploadForm, duration: parseInt(e.target.value)})}
+                className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl px-5 py-4 text-slate-900 dark:text-white focus:border-primary outline-none transition-all"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-2">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-1">Imagen de Portada</label>
+              <div className="relative group">
+                <input
+                  type="file"
+                  accept="image/*"
+                  required
+                  onChange={e => setCoverFile(e.target.files?.[0] || null)}
+                  className="hidden"
+                  id="cover-upload"
+                />
+                <label 
+                  htmlFor="cover-upload"
+                  className="flex flex-col items-center justify-center w-full aspect-video bg-slate-50 dark:bg-slate-950 border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-2xl cursor-pointer hover:border-primary hover:bg-primary/5 transition-all overflow-hidden"
+                >
+                  {coverFile ? (
+                    <div className="relative w-full h-full">
+                      <img src={URL.createObjectURL(coverFile)} className="w-full h-full object-cover" alt="Preview" />
+                      <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                        <RefreshCw className="w-8 h-8 text-white animate-spin-slow" />
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      <Plus className="w-8 h-8 text-slate-300 mb-2" />
+                      <span className="text-xs font-bold text-slate-400">Seleccionar Imagen</span>
+                    </>
+                  )}
+                </label>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-1">Archivo de Video</label>
+              <div className="relative group">
+                <input
+                  type="file"
+                  accept="video/*"
+                  required
+                  onChange={e => setVideoFile(e.target.files?.[0] || null)}
+                  className="hidden"
+                  id="video-upload"
+                />
+                <label 
+                  htmlFor="video-upload"
+                  className="flex flex-col items-center justify-center w-full aspect-video bg-slate-50 dark:bg-slate-950 border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-2xl cursor-pointer hover:border-primary hover:bg-primary/5 transition-all"
+                >
+                  {videoFile ? (
+                    <div className="flex flex-col items-center gap-2 p-4 text-center">
+                      <Video className="w-8 h-8 text-primary" />
+                      <span className="text-xs font-bold text-slate-600 dark:text-slate-300 truncate max-w-[150px]">{videoFile.name}</span>
+                      <span className="text-[10px] text-slate-400">{(videoFile.size / (1024 * 1024)).toFixed(2)} MB</span>
+                    </div>
+                  ) : (
+                    <>
+                      <Video className="w-8 h-8 text-slate-300 mb-2" />
+                      <span className="text-xs font-bold text-slate-400">Seleccionar Video</span>
+                    </>
+                  )}
+                </label>
+              </div>
+            </div>
+          </div>
+
+          {isUploading && (
+            <div className="space-y-2 animate-in fade-in duration-300">
+              <div className="flex justify-between text-[10px] font-black text-primary uppercase tracking-widest">
+                <span>Subiendo archivos...</span>
+                <span>{Math.round(overallProgress)}%</span>
+              </div>
+              <div className="w-full bg-slate-100 dark:bg-slate-800 h-3 rounded-full overflow-hidden shadow-inner">
+                <motion.div 
+                  initial={{ width: 0 }}
+                  animate={{ width: `${overallProgress}%` }}
+                  className="bg-primary h-full shadow-[0_0_15px_rgba(255,99,33,0.5)]"
+                />
+              </div>
+            </div>
+          )}
+
+          <div className="pt-4 flex gap-4">
+            <button
+              type="button"
+              onClick={() => setShowUploadModal(false)}
+              disabled={isUploading}
+              className="flex-1 px-8 py-5 rounded-2xl text-sm font-black uppercase tracking-widest text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all disabled:opacity-50"
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              disabled={isUploading}
+              className="flex-[2] bg-primary text-white px-8 py-5 rounded-2xl text-sm font-black uppercase tracking-widest shadow-xl shadow-primary/30 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 flex items-center justify-center gap-3"
+            >
+              {isUploading ? (
+                <>
+                  <RefreshCw className="w-5 h-5 animate-spin" />
+                  Procesando...
+                </>
+              ) : (
+                <>
+                  <Upload className="w-5 h-5" />
+                  Publicar Entrenamiento
+                </>
+              )}
+            </button>
+          </div>
+        </form>
+      </Modal>
+
       <header className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border-b border-slate-200 dark:border-slate-800 p-6 sticky top-0 z-30">
         <div className="max-w-4xl mx-auto flex items-center gap-4">
           <button onClick={() => navigate('/')} className="p-2.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-2xl transition-all hover:scale-105 active:scale-95">
@@ -805,7 +1096,14 @@ export function Workouts() {
             filteredVideos.map(video => (
               <div key={video.id} onClick={() => handleVideoClick(video)} className="flex flex-col glass-card rounded-[2rem] overflow-hidden group cursor-pointer hover:border-primary/40 hover:shadow-2xl hover:shadow-primary/5 transition-all duration-500">
                 <div className="relative aspect-[16/10] bg-slate-100 dark:bg-slate-950 overflow-hidden">
-                  {video.video_url ? (
+                  {video.cover_url ? (
+                    <img 
+                      src={video.cover_url} 
+                      alt={video.title}
+                      className="absolute inset-0 w-full h-full object-cover scale-105 group-hover:scale-110 transition-transform duration-700"
+                      referrerPolicy="no-referrer"
+                    />
+                  ) : video.video_url ? (
                     (() => {
                       const videoSrc = getYouTubeEmbedUrl(video.video_url);
                       return videoSrc.includes('youtube.com') || videoSrc.includes('youtu.be') ? (
@@ -870,6 +1168,11 @@ export function Workouts() {
                   <h4 className="font-bold text-lg leading-tight text-slate-900 dark:text-white line-clamp-2 group-hover:text-primary transition-colors">{video.title}</h4>
                   <p className="text-sm text-slate-500 dark:text-slate-400 line-clamp-2 mt-2 flex-1">{video.description}</p>
                   <div className="flex flex-wrap gap-2 mt-4">
+                    {video.duration && (
+                      <span className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-[0.15em] bg-slate-100 dark:bg-slate-900 text-slate-600 dark:text-slate-400 px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-800">
+                        <Clock className="w-3 h-3" /> {video.duration} min
+                      </span>
+                    )}
                     {video.difficulty && (
                       <span className="inline-block text-[10px] font-black uppercase tracking-[0.15em] bg-slate-100 dark:bg-slate-900 text-slate-600 dark:text-slate-400 px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-800">
                         {video.difficulty}
